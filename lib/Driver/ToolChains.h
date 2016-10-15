@@ -1249,6 +1249,20 @@ protected:
   Tool *buildLinker() const override;
 };
 
+class LLVM_LIBRARY_VISIBILITY HanafudaToolChain : public ToolChain {
+public:
+  HanafudaToolChain(const Driver &D, const llvm::Triple &Triple,
+                    const llvm::opt::ArgList &Args);
+
+  bool IsMathErrnoDefault() const override { return false; }
+  bool IsObjCNonFragileABIDefault() const override { return true; }
+  bool HasNativeLLVMSupport() const override;
+  bool isPICDefault() const override;
+
+protected:
+  Tool *buildLinker() const override;
+};
+
 } // end namespace toolchains
 } // end namespace driver
 } // end namespace clang

@@ -14,6 +14,7 @@ add_clang_library(clangDriver
   CrossWindowsToolChain.cpp
   Driver.cpp
   DriverOptions.cpp
+  HanafudaToolChain.cpp
   Job.cpp
   MinGWToolChain.cpp
   Multilib.cpp

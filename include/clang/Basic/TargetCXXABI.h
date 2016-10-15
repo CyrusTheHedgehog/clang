@@ -110,7 +110,12 @@ public:
     /// FIXME: should this be split into Win32 and Win64 variants?
     ///
     /// Only scattered and incomplete official documentation exists.
-    Microsoft
+    Microsoft,
+
+    /// The CodeWarrior PowerPC EABI
+    ///
+    /// It is implemented here as part of Hanafuda
+    CodeWarriorPowerPC
   };
 
 private:
@@ -142,6 +147,7 @@ public:
     case WatchOS:
     case GenericMIPS:
     case WebAssembly:
+    case CodeWarriorPowerPC:
       return true;
 
     case Microsoft:
@@ -161,6 +167,7 @@ public:
     case WatchOS:
     case GenericMIPS:
     case WebAssembly:
+    case CodeWarriorPowerPC:
       return false;
 
     case Microsoft:
@@ -194,6 +201,7 @@ public:
     case iOS64:
     case WatchOS:
     case Microsoft:
+    case CodeWarriorPowerPC:
       return true;
     }
     llvm_unreachable("bad ABI kind");
@@ -276,6 +284,7 @@ public:
     case iOS:   // old iOS compilers did not follow this rule
     case Microsoft:
     case GenericMIPS:
+    case CodeWarriorPowerPC:
       return true;
     }
     llvm_unreachable("bad ABI kind");
@@ -322,6 +331,7 @@ public:
     case GenericARM:
     case iOS:
     case GenericMIPS:
+    case CodeWarriorPowerPC:
       return UseTailPaddingUnlessPOD03;
 
     // iOS on ARM64 and WebAssembly use the C++11 POD rules.  They do not honor
