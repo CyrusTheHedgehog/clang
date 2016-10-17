@@ -112,6 +112,8 @@ const DriverSuffix *FindDriverSuffix(StringRef ProgName) {
       {"clang-g++", "--driver-mode=g++"},
       {"clang-gcc", nullptr},
       {"clang-cl", "--driver-mode=cl"},
+      {"hanafuda", "--driver-mode=hanafuda"},
+      {"hanafuda++", "--driver-mode=hanafuda++"},
       {"cc", nullptr},
       {"cpp", "--driver-mode=cpp"},
       {"cl", "--driver-mode=cl"},
@@ -476,7 +478,7 @@ std::string ToolChain::ComputeLLVMTriple(const ArgList &Args,
     StringRef Suffix =
       tools::arm::getLLVMArchSuffixForARM(CPU, MArch, Triple);
     bool IsMProfile = ARM::parseArchProfile(Suffix) == ARM::PK_M;
-    bool ThumbDefault = IsMProfile || (ARM::parseArchVersion(Suffix) == 7 && 
+    bool ThumbDefault = IsMProfile || (ARM::parseArchVersion(Suffix) == 7 &&
                                        getTriple().isOSBinFormatMachO());
     // FIXME: this is invalid for WindowsCE
     if (getTriple().isOSWindows())

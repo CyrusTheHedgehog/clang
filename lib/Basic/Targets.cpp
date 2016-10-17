@@ -952,6 +952,7 @@ public:
       .Case("7450", true)
       .Case("g4+", true)
       .Case("750", true)
+      .Case("750cl", true)
       .Case("970", true)
       .Case("g5", true)
       .Case("a2", true)
@@ -1251,6 +1252,7 @@ void PPCTargetInfo::getTargetDefines(const LangOptions &Opts,
     .Case("7400",  ArchDefineName | ArchDefinePpcgr)
     .Case("7450",  ArchDefineName | ArchDefinePpcgr)
     .Case("750",   ArchDefineName | ArchDefinePpcgr)
+    .Case("750cl",   ArchDefineName | ArchDefinePpcgr)
     .Case("970",   ArchDefineName | ArchDefinePwr4 | ArchDefinePpcgr
                      | ArchDefinePpcsq)
     .Case("a2",    ArchDefineA2)

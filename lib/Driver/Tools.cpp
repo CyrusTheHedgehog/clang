@@ -1552,6 +1552,7 @@ static std::string getPPCTargetCPU(const ArgList &Args) {
         .Case("7450", "7450")
         .Case("G4+", "g4+")
         .Case("750", "750")
+        .Case("750cl", "750cl")
         .Case("970", "970")
         .Case("G5", "g5")
         .Case("a2", "a2")
@@ -1910,6 +1911,10 @@ static StringRef getWebAssemblyTargetCPU(const ArgList &Args) {
 static std::string getCPUName(const ArgList &Args, const llvm::Triple &T,
                               bool FromAs = false) {
   Arg *A;
+
+  // Hanafuda always targets 750cl
+  if (T.getOS() == llvm::Triple::Hanafuda)
+    return "750cl";
 
   switch (T.getArch()) {
   default:
@@ -4391,7 +4396,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (ReciprocalMath)
     CmdArgs.push_back("-freciprocal-math");
 
-  if (!TrappingMath) 
+  if (!TrappingMath)
     CmdArgs.push_back("-fno-trapping-math");
 
   if (Args.hasArg(options::OPT_fdenormal_fp_math_EQ))
@@ -5500,7 +5505,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(
           std::string("-fprebuilt-module-path=") + A->getValue()));
   }
-      
+
   // -fmodule-name specifies the module that is currently being built (or
   // used for header checking by -fmodule-maps).
   Args.AddLastArg(CmdArgs, options::OPT_fmodule_name_EQ);

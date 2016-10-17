@@ -46,7 +46,13 @@ public:
                     const char *LinkingOutput) const override
   {
     ArgStringList CmdArgs;
-    C.addCommand(llvm::make_unique<Command>(JA, *this, "hanafuda-lld", CmdArgs, Inputs));
+
+    TCArgs.AddAllArgs(CmdArgs, {options::OPT_hanafuda_base_dol, options::OPT_hanafuda_base_rel,
+                                options::OPT_hanafuda_text_section, options::OPT_hanafuda_data_section,
+                                options::OPT_hanafuda_dol_symbol_list, options::OPT_hanafuda_rel_symbol_list});
+
+    auto Exec = getToolChain().GetProgramPath("lld-hanafuda");
+    C.addCommand(llvm::make_unique<Command>(JA, *this, Exec.c_str(), CmdArgs, Inputs));
   }
 };
 }
@@ -60,9 +66,6 @@ HanafudaToolChain::HanafudaToolChain(const Driver &D, const llvm::Triple &Triple
 {
   getProgramPaths().push_back(getDriver().getInstalledDir());
 }
-
-bool HanafudaToolChain::HasNativeLLVMSupport() const { return true; }
-bool HanafudaToolChain::isPICDefault() const { return true; }
 
 Tool *HanafudaToolChain::buildLinker() const { return new tools::hanafuda::Linker(*this); }
 

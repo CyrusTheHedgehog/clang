@@ -954,6 +954,8 @@ DerivedArgList *MachO::TranslateArgs(const DerivedArgList &Args,
       DAL->AddJoinedArg(nullptr, MCpu, "604e");
     else if (Name == "ppc750")
       DAL->AddJoinedArg(nullptr, MCpu, "750");
+    else if (Name == "ppc750cl")
+      DAL->AddJoinedArg(nullptr, MCpu, "750cl");
     else if (Name == "ppc7400")
       DAL->AddJoinedArg(nullptr, MCpu, "7400");
     else if (Name == "ppc7450")

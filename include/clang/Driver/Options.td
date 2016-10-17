@@ -79,6 +79,7 @@ def i_Group               : OptionGroup<"<i group>">, Group<CompileOnly_Group>;
 def clang_i_Group         : OptionGroup<"<clang i group>">, Group<i_Group>;
 def m_Group               : OptionGroup<"<m group>">, Group<CompileOnly_Group>;
 def opencl_Group          : OptionGroup<"<opencl group>">, Group<CompileOnly_Group>;
+def hanafuda_Group        : OptionGroup<"<hanafuda group>">;
 
 // Feature groups - these take command line options that correspond directly to
 // target specific features and can be translated directly from command line
@@ -2342,6 +2343,25 @@ defm stack_arrays : BooleanFFlag<"stack-arrays">, Group<gfortran_Group>;
 defm underscoring : BooleanFFlag<"underscoring">, Group<gfortran_Group>;
 defm whole_file : BooleanFFlag<"whole-file">, Group<gfortran_Group>;
 
+// Hanafuda options
+def hanafuda_base_dol: Joined<["--"], "hanafuda-base-dol=">, Group<hanafuda_Group>,
+  Flags<[LinkerInput]>, MetaVarName<"<dol-file>">,
+  HelpText<"Input .dol file to extract base definitions from">;
+def hanafuda_base_rel: Joined<["--"], "hanafuda-base-rel=">, Group<hanafuda_Group>,
+  Flags<[LinkerInput]>, MetaVarName<"<rel-file>">,
+  HelpText<"Input .rel file to extract base definitions from">;
+def hanafuda_text_section: Joined<["--"], "hanafuda-text-section=">, Group<hanafuda_Group>,
+  Flags<[LinkerInput]>, MetaVarName<"<section-index>">,
+  HelpText<"Section to write patched text definitions into">;
+def hanafuda_data_section: Joined<["--"], "hanafuda-data-section=">, Group<hanafuda_Group>,
+  Flags<[LinkerInput]>, MetaVarName<"<section-index>">,
+  HelpText<"Section to write patched data definitions into">;
+def hanafuda_dol_symbol_list: Joined<["--"], "hanafuda-dol-symbol-list=">, Group<hanafuda_Group>,
+  Flags<[LinkerInput]>, MetaVarName<"<symbol-list-file>">,
+  HelpText<"List file to resolve .dol base definitions">;
+def hanafuda_rel_symbol_list: Joined<["--"], "hanafuda-rel-symbol-list=">, Group<hanafuda_Group>,
+  Flags<[LinkerInput]>, MetaVarName<"<symbol-list-file>">,
+  HelpText<"List file to resolve .rel base definitions">;
 
 include "CC1Options.td"
 

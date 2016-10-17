@@ -115,6 +115,8 @@ void Driver::setDriverModeFromOption(StringRef Opt) {
                          .Case("g++", GXXMode)
                          .Case("cpp", CPPMode)
                          .Case("cl", CLMode)
+                         .Case("hanafuda", HanafudaMode)
+                         .Case("hanafuda++", HanafudaXXMode)
                          .Default(~0U);
 
   if (M != ~0U)
@@ -518,6 +520,14 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     T.setOS(llvm::Triple::Win32);
     T.setVendor(llvm::Triple::PC);
     T.setEnvironment(llvm::Triple::MSVC);
+    DefaultTargetTriple = T.str();
+  } else if (IsHanafudaMode() || IsHanafudaXXMode()) {
+    // hanafuda/hanafuda++ targets powerpc-unknown-hanafuda.
+    llvm::Triple T(DefaultTargetTriple);
+    T.setArch(llvm::Triple::ppc);
+    T.setOS(llvm::Triple::Hanafuda);
+    T.setVendor(llvm::Triple::UnknownVendor);
+    T.setEnvironment(llvm::Triple::EABI);
     DefaultTargetTriple = T.str();
   }
   if (const Arg *A = Args.getLastArg(options::OPT_target))
@@ -3119,6 +3129,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       break;
     case llvm::Triple::PS4:
       TC = new toolchains::PS4CPU(*this, Target, Args);
+      break;
+    case llvm::Triple::Hanafuda:
+      TC = new toolchains::HanafudaToolChain(*this, Target, Args);
       break;
     default:
       // Of these targets, Hexagon is the only one that might have

@@ -352,6 +352,15 @@ int main(int argc_, const char **argv_) {
       RSPQuoting = Windows;
   }
 
+  // Test for hanafuda mode
+  bool ClangHanafudaMode = false;
+  if (TargetAndMode.second == "--driver-mode=hanafuda" || TargetAndMode.second == "--driver-mode=hanafuda++" ||
+      std::find_if(argv.begin(), argv.end(), [](const char *F) {
+        return F && (strcmp(F, "--driver-mode=hanafuda") == 0 || strcmp(F, "--driver-mode=hanafuda++") == 0);
+      }) != argv.end()) {
+    ClangHanafudaMode = true;
+  }
+
   // Determines whether we want nullptr markers in argv to indicate response
   // files end-of-lines. We only use this for the /LINK driver argument with
   // clang-cl.exe on Windows.
