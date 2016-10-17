@@ -3130,6 +3130,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
     case llvm::Triple::PS4:
       TC = new toolchains::PS4CPU(*this, Target, Args);
       break;
+    case llvm::Triple::Contiki:
+      TC = new toolchains::Contiki(*this, Target, Args);
+      break;
     case llvm::Triple::Hanafuda:
       TC = new toolchains::HanafudaToolChain(*this, Target, Args);
       break;

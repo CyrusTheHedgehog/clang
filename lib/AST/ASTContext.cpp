@@ -889,10 +889,60 @@ void ASTContext::mergeDefinitionIntoModule(NamedDecl *ND, Module *M,
     if (auto *Listener = getASTMutationListener())
       Listener->RedefinedHiddenDefinition(ND, M);
 
-  if (getLangOpts().ModulesLocalVisibility)
-    MergedDefModules[ND].push_back(M);
-  else
+  auto *Merged = &MergedDefModules[ND];
+  if (auto *CanonDef = Merged->CanonicalDef) {
+    ND = CanonDef;
+    Merged = &MergedDefModules[ND];
+  }
+  assert(!Merged->CanonicalDef && "canonical def not canonical");
+
+  Merged->MergedModules.push_back(M);
+
+  if (!getLangOpts().ModulesLocalVisibility)
     ND->setHidden(false);
+}
+
+void ASTContext::mergeDefinitionIntoModulesOf(NamedDecl *Def,
+                                              NamedDecl *Other) {
+  // We need to know the owning module of the merge source.
+  assert(Other->isFromASTFile() && "merge of non-imported decl not supported");
+  assert(Def != Other && "merging definition into itself");
+
+  if (!Other->isHidden()) {
+    Def->setHidden(false);
+    return;
+  }
+
+  assert(Other->getImportedOwningModule() &&
+         "hidden, imported declaration has no owning module");
+
+  // Mark Def as the canonical definition of merged definition Other.
+  {
+    auto &OtherMerged = MergedDefModules[Other];
+    assert((!OtherMerged.CanonicalDef || OtherMerged.CanonicalDef == Def) &&
+           "mismatched canonical definitions for declaration");
+    OtherMerged.CanonicalDef = Def;
+  }
+
+  auto &Merged = MergedDefModules[Def];
+  // Grab this again, we potentially just invalidated our reference.
+  auto &OtherMerged = MergedDefModules[Other];
+
+  if (Module *M = Other->getImportedOwningModule())
+    Merged.MergedModules.push_back(M);
+
+  // If this definition had any others merged into it, they're now merged into
+  // the canonical definition instead.
+  if (!OtherMerged.MergedModules.empty()) {
+    assert(!Merged.CanonicalDef && "canonical definition not canonical");
+    if (Merged.MergedModules.empty())
+      Merged.MergedModules = std::move(OtherMerged.MergedModules);
+    else
+      Merged.MergedModules.insert(Merged.MergedModules.end(),
+                                  OtherMerged.MergedModules.begin(),
+                                  OtherMerged.MergedModules.end());
+    OtherMerged.MergedModules.clear();
+  }
 }
 
 void ASTContext::deduplicateMergedDefinitonsFor(NamedDecl *ND) {
@@ -900,7 +950,13 @@ void ASTContext::deduplicateMergedDefinitonsFor(NamedDecl *ND) {
   if (It == MergedDefModules.end())
     return;
 
-  auto &Merged = It->second;
+  if (auto *CanonDef = It->second.CanonicalDef) {
+    It = MergedDefModules.find(CanonDef);
+    if (It == MergedDefModules.end())
+      return;
+  }
+
+  auto &Merged = It->second.MergedModules;
   llvm::DenseSet<Module*> Found;
   for (Module *&M : Merged)
     if (!Found.insert(M).second)
@@ -3138,6 +3194,34 @@ ASTContext::getCanonicalFunctionResultType(QualType ResultType) const {
   return CanResultType;
 }
 
+static bool isCanonicalExceptionSpecification(
+    const FunctionProtoType::ExceptionSpecInfo &ESI, bool NoexceptInType) {
+  if (ESI.Type == EST_None)
+    return true;
+  if (!NoexceptInType)
+    return false;
+
+  // C++17 onwards: exception specification is part of the type, as a simple
+  // boolean "can this function type throw".
+  if (ESI.Type == EST_BasicNoexcept)
+    return true;
+
+  // A dynamic exception specification is canonical if it only contains pack
+  // expansions (so we can't tell whether it's non-throwing).
+  if (ESI.Type == EST_Dynamic) {
+    for (QualType ET : ESI.Exceptions)
+      if (!ET->getAs<PackExpansionType>())
+        return false;
+    return true;
+  }
+
+  // A noexcept(expr) specification is canonical if expr is value-dependent.
+  if (ESI.Type == EST_ComputedNoexcept)
+    return ESI.NoexceptExpr && ESI.NoexceptExpr->isValueDependent();
+
+  return false;
+}
+
 QualType
 ASTContext::getFunctionType(QualType ResultTy, ArrayRef<QualType> ArgArray,
                             const FunctionProtoType::ExtProtoInfo &EPI) const {
@@ -3154,10 +3238,14 @@ ASTContext::getFunctionType(QualType ResultTy, ArrayRef<QualType> ArgArray,
         FunctionProtoTypes.FindNodeOrInsertPos(ID, InsertPos))
     return QualType(FTP, 0);
 
+  bool NoexceptInType = getLangOpts().CPlusPlus1z;
+
+  bool IsCanonicalExceptionSpec =
+      isCanonicalExceptionSpecification(EPI.ExceptionSpec, NoexceptInType);
+
   // Determine whether the type being created is already canonical or not.
-  bool isCanonical =
-    EPI.ExceptionSpec.Type == EST_None && isCanonicalResultType(ResultTy) &&
-    !EPI.HasTrailingReturn;
+  bool isCanonical = IsCanonicalExceptionSpec &&
+                     isCanonicalResultType(ResultTy) && !EPI.HasTrailingReturn;
   for (unsigned i = 0; i != NumArgs && isCanonical; ++i)
     if (!ArgArray[i].isCanonicalAsParam())
       isCanonical = false;
@@ -3173,7 +3261,45 @@ ASTContext::getFunctionType(QualType ResultTy, ArrayRef<QualType> ArgArray,
 
     FunctionProtoType::ExtProtoInfo CanonicalEPI = EPI;
     CanonicalEPI.HasTrailingReturn = false;
-    CanonicalEPI.ExceptionSpec = FunctionProtoType::ExceptionSpecInfo();
+
+    if (IsCanonicalExceptionSpec) {
+      // Exception spec is already OK.
+    } else if (NoexceptInType) {
+      switch (EPI.ExceptionSpec.Type) {
+      case EST_Unparsed: case EST_Unevaluated: case EST_Uninstantiated:
+        // We don't know yet. It shouldn't matter what we pick here; no-one
+        // should ever look at this.
+        LLVM_FALLTHROUGH;
+      case EST_None: case EST_MSAny: case EST_Dynamic:
+        // If we get here for EST_Dynamic, there is at least one
+        // non-pack-expansion type, so this is not non-throwing.
+        CanonicalEPI.ExceptionSpec.Type = EST_None;
+        break;
+
+      case EST_DynamicNone: case EST_BasicNoexcept:
+        CanonicalEPI.ExceptionSpec.Type = EST_BasicNoexcept;
+        break;
+
+      case EST_ComputedNoexcept:
+        llvm::APSInt Value(1);
+        auto *E = CanonicalEPI.ExceptionSpec.NoexceptExpr;
+        if (!E || !E->isIntegerConstantExpr(Value, *this, nullptr,
+                                            /*IsEvaluated*/false)) {
+          // This noexcept specification is invalid.
+          // FIXME: Should this be able to happen?
+          CanonicalEPI.ExceptionSpec.Type = EST_None;
+          break;
+        }
+
+        CanonicalEPI.ExceptionSpec.Type =
+            Value.getBoolValue() ? EST_BasicNoexcept : EST_None;
+        break;
+      }
+      assert(isCanonicalExceptionSpecification(CanonicalEPI.ExceptionSpec,
+                                               NoexceptInType));
+    } else {
+      CanonicalEPI.ExceptionSpec = FunctionProtoType::ExceptionSpecInfo();
+    }
 
     // Adjust the canonical function result type.
     CanQualType CanResultTy = getCanonicalFunctionResultType(ResultTy);
@@ -8825,15 +8951,10 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
       }
     }
 
-    GVALinkage Linkage = GetGVALinkageForFunction(FD);
-
     // static, static inline, always_inline, and extern inline functions can
     // always be deferred.  Normal inline functions can be deferred in C99/C++.
     // Implicit template instantiations can also be deferred in C++.
-    if (Linkage == GVA_Internal || Linkage == GVA_AvailableExternally ||
-        Linkage == GVA_DiscardableODR)
-      return false;
-    return true;
+    return !isDiscardableGVALinkage(GetGVALinkageForFunction(FD));
   }
 
   const VarDecl *VD = cast<VarDecl>(D);
@@ -8844,9 +8965,7 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     return false;
 
   // Variables that can be needed in other TUs are required.
-  GVALinkage L = GetGVALinkageForVariable(VD);
-  if (L != GVA_Internal && L != GVA_AvailableExternally &&
-      L != GVA_DiscardableODR)
+  if (!isDiscardableGVALinkage(GetGVALinkageForVariable(VD)))
     return true;
 
   // Variables that have destruction with side-effects are required.
