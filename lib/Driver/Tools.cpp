@@ -11637,6 +11637,27 @@ void PS4cpu::Link::ConstructJob(Compilation &C, const JobAction &JA,
     ConstructGoldLinkJob(*this, C, JA, Output, Inputs, Args, LinkingOutput);
 }
 
+void hanafuda::Link::ConstructJob(Compilation &C, const JobAction &JA,
+                                  const InputInfo &Output,
+                                  const InputInfoList &Inputs,
+                                  const llvm::opt::ArgList &TCArgs,
+                                  const char *LinkingOutput) const
+{
+  ArgStringList CmdArgs;
+
+  if (Arg *openArg = TCArgs.getLastArg(options::OPT_o)) {
+    CmdArgs.push_back("-o");
+    SmallString<128> Quoted;
+    QuoteTarget(openArg->getValue(), Quoted);
+    CmdArgs.push_back(TCArgs.MakeArgString(Quoted));
+  }
+
+  AddLinkerInputs(getToolChain(), Inputs, TCArgs, CmdArgs);
+
+  auto Exec = getToolChain().GetProgramPath("lld-hanafuda");
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec.c_str(), CmdArgs, Inputs));
+}
+
 void NVPTX::Assembler::ConstructJob(Compilation &C, const JobAction &JA,
                                     const InputInfo &Output,
                                     const InputInfoList &Inputs,

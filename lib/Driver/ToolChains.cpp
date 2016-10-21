@@ -5308,6 +5308,15 @@ SanitizerMask PS4CPU::getSupportedSanitizers() const {
   return Res;
 }
 
+Hanafuda::Hanafuda(const Driver &D, const llvm::Triple &Triple,
+                   const llvm::opt::ArgList &Args)
+: ToolChain(D, Triple, Args)
+{
+  getProgramPaths().push_back(getDriver().getInstalledDir());
+}
+
+Tool *Hanafuda::buildLinker() const { return new tools::hanafuda::Link(*this); }
+
 Contiki::Contiki(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
     : Generic_ELF(D, Triple, Args) {}
 

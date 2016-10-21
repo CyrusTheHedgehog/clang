@@ -1257,9 +1257,9 @@ public:
   SanitizerMask getSupportedSanitizers() const override;
 };
 
-class LLVM_LIBRARY_VISIBILITY HanafudaToolChain : public ToolChain {
+class LLVM_LIBRARY_VISIBILITY Hanafuda : public ToolChain {
 public:
-  HanafudaToolChain(const Driver &D, const llvm::Triple &Triple,
+  Hanafuda(const Driver &D, const llvm::Triple &Triple,
                     const llvm::opt::ArgList &Args);
 
   bool IsMathErrnoDefault() const override { return false; }
