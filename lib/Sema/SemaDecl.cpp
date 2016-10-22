@@ -8264,7 +8264,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   ProcessDeclAttributes(S, NewFD, D);
 
   if (getLangOpts().CUDA)
-    maybeAddCUDAHostDeviceAttrs(S, NewFD, Previous);
+    maybeAddCUDAHostDeviceAttrs(NewFD, Previous);
 
   if (getLangOpts().OpenCL) {
     // OpenCL v1.1 s6.5: Using an address space qualifier in a function return
@@ -8445,7 +8445,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                                 ? cast<NamedDecl>(FunctionTemplate)
                                 : NewFD);
 
-    if (isFriend && D.isRedeclaration()) {
+    if (isFriend && NewFD->getPreviousDecl()) {
       AccessSpecifier Access = AS_public;
       if (!NewFD->isInvalidDecl())
         Access = NewFD->getPreviousDecl()->getAccess();
@@ -8901,8 +8901,6 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
         NewFD->setPreviousDeclaration(cast<FunctionDecl>(OldDecl));
         if (isa<CXXMethodDecl>(NewFD))
           NewFD->setAccess(OldDecl->getAccess());
-      } else {
-        Redeclaration = false;
       }
     }
   }
@@ -10124,7 +10122,8 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
     // C++11 [dcl.constexpr]p1: The constexpr specifier shall be applied only to
     // the definition of a variable [...] or the declaration of a static data
     // member.
-    if (Var->isConstexpr() && !Var->isThisDeclarationADefinition()) {
+    if (Var->isConstexpr() && !Var->isThisDeclarationADefinition() &&
+        !Var->isThisDeclarationADemotedDefinition()) {
       if (Var->isStaticDataMember()) {
         // C++1z removes the relevant rule; the in-class declaration is always
         // a definition there.
@@ -15627,4 +15626,30 @@ void Sema::ActOnPragmaWeakAlias(IdentifierInfo* Name,
 
 Decl *Sema::getObjCDeclContext() const {
   return (dyn_cast_or_null<ObjCContainerDecl>(CurContext));
+}
+
+AvailabilityResult Sema::getCurContextAvailability() const {
+  const Decl *D = cast_or_null<Decl>(getCurObjCLexicalContext());
+  if (!D)
+    return AR_Available;
+
+  // If we are within an Objective-C method, we should consult
+  // both the availability of the method as well as the
+  // enclosing class.  If the class is (say) deprecated,
+  // the entire method is considered deprecated from the
+  // purpose of checking if the current context is deprecated.
+  if (const ObjCMethodDecl *MD = dyn_cast<ObjCMethodDecl>(D)) {
+    AvailabilityResult R = MD->getAvailability();
+    if (R != AR_Available)
+      return R;
+    D = MD->getClassInterface();
+  }
+  // If we are within an Objective-c @implementation, it
+  // gets the same availability context as the @interface.
+  else if (const ObjCImplementationDecl *ID =
+            dyn_cast<ObjCImplementationDecl>(D)) {
+    D = ID->getClassInterface();
+  }
+  // Recover from user error.
+  return D ? D->getAvailability() : AR_Available;
 }

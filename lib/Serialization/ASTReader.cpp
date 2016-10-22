@@ -1983,6 +1983,7 @@ ASTReader::readInputFileInfo(ModuleFile &F, unsigned ID) {
   return R;
 }
 
+static unsigned moduleKindForDiagnostic(ModuleKind Kind);
 InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
   // If this ID is bogus, just return an empty input file.
   if (ID == 0 || ID > F.InputFilesLoaded.size())
@@ -2079,7 +2080,13 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
 
       // The top-level PCH is stale.
       StringRef TopLevelPCHName(ImportStack.back()->FileName);
-      Error(diag::err_fe_pch_file_modified, Filename, TopLevelPCHName);
+      unsigned DiagnosticKind = moduleKindForDiagnostic(ImportStack.back()->Kind);
+      if (DiagnosticKind == 0)
+        Error(diag::err_fe_pch_file_modified, Filename, TopLevelPCHName);
+      else if (DiagnosticKind == 1)
+        Error(diag::err_fe_module_file_modified, Filename, TopLevelPCHName);
+      else
+        Error(diag::err_fe_ast_file_modified, Filename, TopLevelPCHName);
 
       // Print the import stack.
       if (ImportStack.size() > 1 && !Diags.isDiagnosticInFlight()) {
@@ -3481,10 +3488,23 @@ void ASTReader::makeModuleVisible(Module *Mod,
 /// visible.
 void ASTReader::mergeDefinitionVisibility(NamedDecl *Def,
                                           NamedDecl *MergedDef) {
+  // FIXME: This doesn't correctly handle the case where MergedDef is visible
+  // in modules other than its owning module. We should instead give the
+  // ASTContext a list of merged definitions for Def.
   if (Def->isHidden()) {
     // If MergedDef is visible or becomes visible, make the definition visible.
-    getContext().mergeDefinitionIntoModulesOf(Def, MergedDef);
-    PendingMergedDefinitionsToDeduplicate.insert(Def);
+    if (!MergedDef->isHidden())
+      Def->Hidden = false;
+    else if (getContext().getLangOpts().ModulesLocalVisibility) {
+      getContext().mergeDefinitionIntoModule(
+          Def, MergedDef->getImportedOwningModule(),
+          /*NotifyListeners*/ false);
+      PendingMergedDefinitionsToDeduplicate.insert(Def);
+    } else {
+      auto SubmoduleID = MergedDef->getOwningModuleID();
+      assert(SubmoduleID && "hidden definition in no module");
+      HiddenNamesMap[getSubmodule(SubmoduleID)].push_back(Def);
+    }
   }
 }
 
@@ -8619,7 +8639,7 @@ void ASTReader::finishPendingActions() {
       const FunctionDecl *Defn = nullptr;
       if (!getContext().getLangOpts().Modules || !FD->hasBody(Defn))
         FD->setLazyBody(PB->second);
-      else if (FD != Defn)
+      else
         mergeDefinitionVisibility(const_cast<FunctionDecl*>(Defn), FD);
       continue;
     }

@@ -1279,7 +1279,9 @@ static bool checkMemberDecomposition(Sema &S, ArrayRef<BindingDecl*> Bindings,
                                                  DecompType.getQualifiers());
 
   auto DiagnoseBadNumberOfBindings = [&]() -> bool {
-    unsigned NumFields = std::distance(RD->field_begin(), RD->field_end());
+    unsigned NumFields =
+        std::count_if(RD->field_begin(), RD->field_end(),
+                      [](FieldDecl *FD) { return !FD->isUnnamedBitfield(); });
     assert(Bindings.size() != NumFields);
     S.Diag(Src->getLocation(), diag::err_decomp_decl_wrong_number_bindings)
         << DecompType << (unsigned)Bindings.size() << NumFields
@@ -13783,10 +13785,9 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     // template in the translation unit.
     if (functionDeclHasDefaultArgument(FD)) {
       // We can't look at FD->getPreviousDecl() because it may not have been set
-      // if we're in a dependent context. If we get this far with a non-empty
-      // Previous set, we must have a valid previous declaration of this
-      // function.
-      if (!Previous.empty()) {
+      // if we're in a dependent context. If the function is known to be a
+      // redeclaration, we will have narrowed Previous down to the right decl.
+      if (D.isRedeclaration()) {
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_redeclared);
         Diag(Previous.getRepresentativeDecl()->getLocation(),
              diag::note_previous_declaration);

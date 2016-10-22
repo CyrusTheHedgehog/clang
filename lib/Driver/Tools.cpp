@@ -4504,6 +4504,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-mms-bitfields");
   }
 
+  if (Args.hasFlag(options::OPT_mpie_copy_relocations,
+                   options::OPT_mno_pie_copy_relocations,
+                   false)) {
+    CmdArgs.push_back("-mpie-copy-relocations");
+  }
+
   // This is a coarse approximation of what llvm-gcc actually does, both
   // -fasynchronous-unwind-tables and -fnon-call-exceptions interact in more
   // complicated ways.
@@ -5733,7 +5739,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   ObjCRuntime objcRuntime = AddObjCRuntimeArgs(Args, CmdArgs, rewriteKind);
 
   // -fobjc-dispatch-method is only relevant with the nonfragile-abi, and
-  // legacy is the default. Except for deployment taget of 10.5,
+  // legacy is the default. Except for deployment target of 10.5,
   // next runtime is always legacy dispatch and -fno-objc-legacy-dispatch
   // gets ignored silently.
   if (objcRuntime.isNonFragile()) {
@@ -7881,6 +7887,29 @@ bool darwin::Linker::NeedsTempPath(const InputInfoList &Inputs) const {
   return false;
 }
 
+/// \brief Pass -no_deduplicate to ld64 under certain conditions:
+///
+/// - Either -O0 or -O1 is explicitly specified
+/// - No -O option is specified *and* this is a compile+link (implicit -O0)
+///
+/// Also do *not* add -no_deduplicate when no -O option is specified and this
+/// is just a link (we can't imply -O0)
+static bool shouldLinkerNotDedup(bool IsLinkerOnlyAction, const ArgList &Args) {
+  if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
+    if (A->getOption().matches(options::OPT_O0))
+      return true;
+    if (A->getOption().matches(options::OPT_O))
+      return llvm::StringSwitch<bool>(A->getValue())
+                    .Case("1", true)
+                    .Default(false);
+    return false; // OPT_Ofast & OPT_O4
+  }
+
+  if (!IsLinkerOnlyAction) // Implicit -O0 for compile+linker only.
+    return true;
+  return false;
+}
+
 void darwin::Linker::AddLinkArgs(Compilation &C, const ArgList &Args,
                                  ArgStringList &CmdArgs,
                                  const InputInfoList &Inputs) const {
@@ -7936,6 +7965,10 @@ void darwin::Linker::AddLinkArgs(Compilation &C, const ArgList &Args,
       }
     }
   }
+
+  // ld64 version 262 and above run the deduplicate pass by default.
+  if (Version[0] >= 262 && shouldLinkerNotDedup(C.getJobs().empty(), Args))
+    CmdArgs.push_back("-no_deduplicate");
 
   // Derived from the "link" spec.
   Args.AddAllArgs(CmdArgs, options::OPT_static);
@@ -10065,7 +10098,7 @@ void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.ClaimAllArgs(options::OPT_w);
 
   const char *Exec = Args.MakeArgString(ToolChain.GetLinkerPath());
-  if (llvm::sys::path::filename(Exec).equals_lower("lld")) {
+  if (llvm::sys::path::stem(Exec).equals_lower("lld")) {
     CmdArgs.push_back("-flavor");
     CmdArgs.push_back("gnu");
   }

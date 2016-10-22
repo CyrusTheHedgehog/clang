@@ -350,14 +350,6 @@ class Preprocessor : public RefCountedBase<Preprocessor> {
           ThePPLexer(std::move(ThePPLexer)),
           TheTokenLexer(std::move(TheTokenLexer)),
           TheDirLookup(std::move(TheDirLookup)) {}
-    IncludeStackInfo(IncludeStackInfo &&RHS)
-        : CurLexerKind(std::move(RHS.CurLexerKind)),
-          TheSubmodule(std::move(RHS.TheSubmodule)),
-          TheLexer(std::move(RHS.TheLexer)),
-          ThePTHLexer(std::move(RHS.ThePTHLexer)),
-          ThePPLexer(std::move(RHS.ThePPLexer)),
-          TheTokenLexer(std::move(RHS.TheTokenLexer)),
-          TheDirLookup(std::move(RHS.TheDirLookup)) {}
   };
   std::vector<IncludeStackInfo> IncludeMacroStack;
 
@@ -424,10 +416,10 @@ class Preprocessor : public RefCountedBase<Preprocessor> {
   public:
     MacroState() : MacroState(nullptr) {}
     MacroState(MacroDirective *MD) : State(MD) {}
-    MacroState(MacroState &&O) LLVM_NOEXCEPT : State(O.State) {
+    MacroState(MacroState &&O) noexcept : State(O.State) {
       O.State = (MacroDirective *)nullptr;
     }
-    MacroState &operator=(MacroState &&O) LLVM_NOEXCEPT {
+    MacroState &operator=(MacroState &&O) noexcept {
       auto S = O.State;
       O.State = (MacroDirective *)nullptr;
       State = S;
