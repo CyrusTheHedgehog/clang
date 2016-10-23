@@ -8891,6 +8891,8 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
       return false;
   } else if (isa<PragmaCommentDecl>(D))
     return true;
+  else if (isa<PragmaPatchDecl>(D))
+      return true;
   else if (isa<OMPThreadPrivateDecl>(D) ||
            D->hasAttr<OMPDeclareTargetDeclAttr>())
     return true;

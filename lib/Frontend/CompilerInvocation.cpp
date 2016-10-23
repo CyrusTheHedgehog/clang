@@ -659,7 +659,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       }
     }
   }
-	// Handle -fembed-bitcode option.
+  // Handle -fembed-bitcode option.
   if (Arg *A = Args.getLastArg(OPT_fembed_bitcode_EQ)) {
     StringRef Name = A->getValue();
     unsigned Model = llvm::StringSwitch<unsigned>(Name)
@@ -1895,6 +1895,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                                   VT.getMinor().getValueOr(0) * 100000 +
                                   VT.getSubminor().getValueOr(0);
   }
+
+  // Hanafuda pragma directives are available when the target indicates hanafuda
+  Opts.HanafudaExt = T.getOS() == llvm::Triple::Hanafuda;
 
   // Mimicing gcc's behavior, trigraphs are only enabled if -trigraphs
   // is specified, or -std is set to a conforming mode.

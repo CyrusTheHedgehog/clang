@@ -178,7 +178,7 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> LoopHintHandler;
   std::unique_ptr<PragmaHandler> UnrollHintHandler;
   std::unique_ptr<PragmaHandler> NoUnrollHintHandler;
-  std::unique_ptr<PragmaHandler> DolPatchHandler;
+  std::unique_ptr<PragmaHandler> HanafudaPatchDolHandler;
 
   std::unique_ptr<CommentHandler> CommentSemaHandler;
 

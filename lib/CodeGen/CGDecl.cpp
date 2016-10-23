@@ -76,6 +76,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::ObjCCompatibleAlias:
   case Decl::PragmaComment:
   case Decl::PragmaDetectMismatch:
+  case Decl::PragmaPatch:
   case Decl::AccessSpec:
   case Decl::LinkageSpec:
   case Decl::Export:

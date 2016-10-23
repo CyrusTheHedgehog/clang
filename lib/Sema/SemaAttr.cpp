@@ -172,7 +172,7 @@ void Sema::ActOnPragmaPack(SourceLocation PragmaLoc, PragmaMsStackAction Action,
   PackStack.Act(PragmaLoc, Action, SlotLabel, AlignmentVal);
 }
 
-void Sema::ActOnPragmaMSStruct(PragmaMSStructKind Kind) { 
+void Sema::ActOnPragmaMSStruct(PragmaMSStructKind Kind) {
   MSStructPragmaOn = (Kind == PMSST_ON);
 }
 
@@ -206,6 +206,15 @@ void Sema::ActOnPragmaMSVtorDisp(PragmaMsStackAction Action,
     Diag(PragmaLoc, diag::warn_pragma_pop_failed) << "vtordisp"
                                                   << "stack empty";
   VtorDispStack.Act(PragmaLoc, Action, StringRef(), Mode);
+}
+
+void Sema::ActOnPragmaPatch(SourceLocation CommentLoc,
+                            std::string&& New, std::string&& Old) {
+  auto *PPD = PragmaPatchDecl::Create(
+      Context, Context.getTranslationUnitDecl(), CommentLoc,
+      std::move(New), std::move(Old));
+  Context.getTranslationUnitDecl()->addDecl(PPD);
+  Consumer.HandleTopLevelDecl(DeclGroupRef(PPD));
 }
 
 template<typename ValueType>
@@ -381,7 +390,7 @@ void Sema::AddRangeBasedOptnone(FunctionDecl *FD) {
     AddOptnoneAttributeIfNoConflicts(FD, OptimizeOffPragmaLocation);
 }
 
-void Sema::AddOptnoneAttributeIfNoConflicts(FunctionDecl *FD, 
+void Sema::AddOptnoneAttributeIfNoConflicts(FunctionDecl *FD,
                                             SourceLocation Loc) {
   // Don't add a conflicting attribute. No diagnostic is needed.
   if (FD->hasAttr<MinSizeAttr>() || FD->hasAttr<AlwaysInlineAttr>())
@@ -453,7 +462,7 @@ void Sema::ActOnPragmaFPContract(tok::OnOffSwitch OOS) {
     FPFeatures.fp_contract = 1;
     break;
   case tok::OOS_OFF:
-    FPFeatures.fp_contract = 0; 
+    FPFeatures.fp_contract = 0;
     break;
   case tok::OOS_DEFAULT:
     FPFeatures.fp_contract = getLangOpts().DefaultFPContract;

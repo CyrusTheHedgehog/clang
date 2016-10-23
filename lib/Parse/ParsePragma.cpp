@@ -157,15 +157,6 @@ struct PragmaUnrollHintHandler : public PragmaHandler {
                     Token &FirstToken) override;
 };
 
-struct PragmaDolPatchHandler : public PragmaHandler {
-  PragmaDolPatchHandler(Parser &P)
-      : PragmaHandler("dol_patch"), P(P) {}
-  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
-                    Token &FirstToken) override;
-private:
-  Parser &P;
-};
-
 struct PragmaMSRuntimeChecksHandler : public EmptyPragmaHandler {
   PragmaMSRuntimeChecksHandler() : EmptyPragmaHandler("runtime_checks") {}
 };
@@ -182,6 +173,98 @@ struct PragmaForceCUDAHostDeviceHandler : public PragmaHandler {
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                     Token &FirstToken) override;
 
+private:
+  Sema &Actions;
+};
+
+struct PragmaPatchDolHandler : public PragmaHandler {
+  PragmaPatchDolHandler(Sema &Actions)
+      : PragmaHandler("patch_dol"), Actions(Actions) {}
+
+  std::string ParseDeclarator(Preprocessor &PP, Token &Tok) {
+    std::string ret;
+    int parenCount = 0;
+    int angleCount = 0;
+    while (parenCount || angleCount || (Tok.isNot(tok::comma) && Tok.isNot(tok::r_paren))) {
+      if (Tok.is(tok::identifier)) {
+        IdentifierInfo *II = Tok.getIdentifierInfo();
+        ret += II->getName();
+      } else if (Tok.is(tok::coloncolon)) {
+        ret += "::";
+      } else if (Tok.is(tok::less)) {
+        ret += '<';
+        ++angleCount;
+      } else if (Tok.is(tok::greater)) {
+        if (!angleCount) {
+          PP.Diag(Tok.getLocation(), diag::err_pragma_hanafuda_symbol_malformed)
+              << "patch_dol";
+          return {};
+        }
+        ret += '>';
+        --angleCount;
+      } else if (Tok.is(tok::l_paren)) {
+        ret += '(';
+        ++parenCount;
+      } else if (Tok.is(tok::r_paren)) {
+        if (!parenCount) {
+          PP.Diag(Tok.getLocation(), diag::err_pragma_hanafuda_symbol_malformed)
+              << "patch_dol";
+          return {};
+        }
+        ret += ')';
+        --parenCount;
+      }
+
+      PP.Lex(Tok);
+    }
+
+    if (ret.empty())
+      PP.Diag(Tok.getLocation(), diag::err_pragma_hanafuda_symbol_malformed)
+          << "patch_dol";
+    return ret;
+  }
+
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok) override {
+    SourceLocation CommentLoc = Tok.getLocation();
+    PP.Lex(Tok);
+
+    if (Tok.isNot(tok::l_paren)) {
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_lparen)
+          << "patch_dol";
+      return;
+    }
+    PP.Lex(Tok);
+
+    std::string New = ParseDeclarator(PP, Tok);
+    if (New.empty())
+      return;
+    printf("%s\n", New.c_str());
+    fflush(stdout);
+
+    std::string Old;
+    if (Tok.is(tok::comma)) {
+      PP.Lex(Tok);
+      Old = ParseDeclarator(PP, Tok);
+      if (Old.empty())
+        return;
+      printf("%s\n", Old.c_str());
+      fflush(stdout);
+    }
+
+    if (Tok.isNot(tok::r_paren)) {
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_rparen)
+          << "patch_dol";
+      return;
+    }
+    PP.Lex(Tok);
+
+    if (Tok.isNot(tok::eod))
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+          << "patch_dol";
+
+    Actions.ActOnPragmaPatch(CommentLoc, std::move(New), std::move(Old));
+  }
 private:
   Sema &Actions;
 };
@@ -276,8 +359,10 @@ void Parser::initializePragmaHandlers() {
   NoUnrollHintHandler.reset(new PragmaUnrollHintHandler("nounroll"));
   PP.AddPragmaHandler(NoUnrollHintHandler.get());
 
-  DolPatchHandler.reset(new PragmaDolPatchHandler(*this));
-  PP.AddPragmaHandler(DolPatchHandler.get());
+  if (getLangOpts().HanafudaExt) {
+    HanafudaPatchDolHandler.reset(new PragmaPatchDolHandler(Actions));
+    PP.AddPragmaHandler(HanafudaPatchDolHandler.get());
+  }
 }
 
 void Parser::resetPragmaHandlers() {
@@ -356,6 +441,11 @@ void Parser::resetPragmaHandlers() {
 
   PP.RemovePragmaHandler(NoUnrollHintHandler.get());
   NoUnrollHintHandler.reset();
+
+  if (getLangOpts().HanafudaExt) {
+    PP.RemovePragmaHandler(HanafudaPatchDolHandler.get());
+    HanafudaPatchDolHandler.reset();
+  }
 }
 
 /// \brief Handle the annotation token produced for #pragma unused(...)
@@ -2169,46 +2259,6 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
   PP.EnterTokenStream(std::move(TokenArray), 1,
                       /*DisableMacroExpansion=*/false);
-}
-
-/// Hanafuda pragma intrinsic registers a .dol-patching symbol pair
-/// to be carried out during the final link
-///
-/// The syntax is:
-/// \code
-///  #pragma dol_patch(newSym, oldSym)
-/// \endcode
-void PragmaDolPatchHandler::HandlePragma(Preprocessor &PP,
-                                         PragmaIntroducerKind Introducer,
-                                         Token &Tok) {
-  PP.Lex(Tok);
-
-  if (Tok.isNot(tok::l_paren)) {
-    PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_lparen)
-        << "dol_patch";
-    return;
-  }
-  PP.Lex(Tok);
-
-  while (Tok.is(tok::identifier)) {
-    IdentifierInfo *II = Tok.getIdentifierInfo();
-
-    PP.Lex(Tok);
-    if (Tok.isNot(tok::comma))
-      break;
-    PP.Lex(Tok);
-  }
-
-  if (Tok.isNot(tok::r_paren)) {
-    PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_rparen)
-        << "dol_patch";
-    return;
-  }
-  PP.Lex(Tok);
-
-  if (Tok.isNot(tok::eod))
-    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
-        << "dol_patch";
 }
 
 /// \brief Handle the Microsoft \#pragma intrinsic extension.

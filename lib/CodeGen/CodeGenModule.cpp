@@ -500,6 +500,8 @@ void CodeGenModule::Release() {
   EmitVersionIdentMetadata();
 
   EmitTargetMetadata();
+
+  EmitHanafudaPatchMetadata();
 }
 
 void CodeGenModule::UpdateCompletedType(const TagDecl *TD) {
@@ -4215,6 +4217,14 @@ void CodeGenModule::EmitTargetMetadata() {
     llvm::GlobalValue *GV = GetGlobalValue(Val.second);
     getTargetCodeGenInfo().emitTargetMD(D, GV, *this);
   }
+}
+
+void CodeGenModule::EmitHanafudaPatchMetadata() {
+  llvm::NamedMDNode *PatchMetadata =
+    TheModule.getOrInsertNamedMetadata("llvm.hanafuda.patch");
+  llvm::LLVMContext &Ctx = TheModule.getContext();
+
+  PatchMetadata->addOperand(llvm::MDNode::get(Ctx, HanafudaPatchMDNodes));
 }
 
 void CodeGenModule::EmitCoverageFile() {

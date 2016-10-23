@@ -231,7 +231,7 @@ serialization::getDefinitiveDeclContext(const DeclContext *DC) {
   default:
     llvm_unreachable("Unhandled DeclContext in AST reader");
   }
-  
+
   llvm_unreachable("Unhandled decl kind");
 }
 
@@ -296,6 +296,7 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::ObjCPropertyImpl:
   case Decl::PragmaComment:
   case Decl::PragmaDetectMismatch:
+  case Decl::PragmaPatch:
   case Decl::FileScopeAsm:
   case Decl::AccessSpec:
   case Decl::Friend:

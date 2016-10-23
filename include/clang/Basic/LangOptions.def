@@ -86,6 +86,7 @@ LANGOPT(MSVCCompat        , 1, 0, "Microsoft Visual C++ full compatibility mode"
 LANGOPT(MicrosoftExt      , 1, 0, "Microsoft C++ extensions")
 LANGOPT(AsmBlocks         , 1, 0, "Microsoft inline asm blocks")
 LANGOPT(Borland           , 1, 0, "Borland extensions")
+LANGOPT(HanafudaExt       , 1, 0, "Hanafuda #pragma directives")
 LANGOPT(CPlusPlus         , 1, 0, "C++")
 LANGOPT(CPlusPlus11       , 1, 0, "C++11")
 LANGOPT(CPlusPlus14       , 1, 0, "C++14")
