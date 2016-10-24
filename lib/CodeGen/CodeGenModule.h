@@ -358,9 +358,6 @@ private:
   llvm::MapVector<GlobalDecl, StringRef> MangledDeclNames;
   llvm::StringMap<GlobalDecl, llvm::BumpPtrAllocator> Manglings;
 
-  /// Patch metadata nodes to output in the LLVM module
-  std::vector<llvm::Metadata *> HanafudaPatchMDNodes;
-
   /// Global annotations.
   std::vector<llvm::Constant*> Annotations;
 
@@ -429,6 +426,9 @@ private:
 
   /// \brief A vector of metadata strings.
   SmallVector<llvm::Metadata *, 16> LinkerOptionsMetadata;
+
+  /// \brief Patch metadata nodes to output in the LLVM module
+  SmallVector<llvm::Metadata *, 16> HanafudaPatchMetadata;
 
   /// @name Cache for Objective-C runtime types
   /// @{
@@ -1015,6 +1015,9 @@ public:
 
   /// \brief Appends a dependent lib to the "Linker Options" metadata value.
   void AddDependentLib(StringRef Lib);
+
+  /// \brief Appends a hanafuda patch directive metadata tuple
+  void AddHanafudaPatch(StringRef New, StringRef Old);
 
   llvm::GlobalVariable::LinkageTypes getFunctionLinkage(GlobalDecl GD);
 

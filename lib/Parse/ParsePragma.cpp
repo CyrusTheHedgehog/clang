@@ -21,6 +21,7 @@
 #include "clang/Sema/LoopHint.h"
 #include "clang/Sema/Scope.h"
 #include "llvm/ADT/StringSwitch.h"
+#include <sstream>
 using namespace clang;
 
 namespace {
@@ -181,47 +182,241 @@ struct PragmaPatchDolHandler : public PragmaHandler {
   PragmaPatchDolHandler(Sema &Actions)
       : PragmaHandler("patch_dol"), Actions(Actions) {}
 
+  static char TypeSymbol(const Token &Tok) {
+    switch (Tok.getKind()) {
+    case tok::kw_int:
+      return 'i';
+    case tok::kw_short:
+      return 's';
+    case tok::kw_long:
+      return 'l';
+    case tok::kw_char:
+      return 'c';
+    case tok::kw_bool:
+      return 'b';
+    case tok::kw_void:
+      return 'v';
+    case tok::kw_float:
+      return 'f';
+    case tok::kw_double:
+      return 'd';
+    case tok::kw_wchar_t:
+      return 'w';
+    case tok::kw_unsigned:
+      return 'U';
+    default:
+      return 0;
+    }
+  }
+
+  static bool IsConstantFunction(Preprocessor &PP, Token &Tok) {
+    Token PrevTok = Tok;
+    PP.EnableBacktrackAtThisPos();
+    PP.Lex(Tok);
+
+    int angleCount = 0;
+    while (angleCount || Tok.isNot(tok::r_paren)) {
+      if (Tok.is(tok::less)) {
+        ++angleCount;
+      } else if (Tok.is(tok::greater)) {
+        if (!angleCount) {
+          PP.Diag(Tok.getLocation(), diag::err_pragma_hanafuda_symbol_malformed)
+              << "patch_dol";
+          PP.Backtrack();
+          Tok = PrevTok;
+          return -1;
+        }
+        --angleCount;
+      } else if (Tok.isOneOf(tok::l_paren, tok::r_paren)) {
+        break;
+      }
+
+      PP.Lex(Tok);
+    }
+
+    bool ret = false;
+    if (Tok.is(tok::r_paren)) {
+      PP.Lex(Tok);
+      if (Tok.is(tok::kw_const))
+        ret = true;
+    }
+
+    PP.Backtrack();
+    Tok = PrevTok;
+
+    return ret;
+  }
+
+  static int CountQualifiers(Preprocessor &PP, Token &Tok) {
+    Token PrevTok = Tok;
+    PP.EnableBacktrackAtThisPos();
+    int count = 1;
+
+    int angleCount = 0;
+    while (angleCount || (Tok.isNot(tok::comma) && Tok.isNot(tok::r_paren))) {
+      if (Tok.is(tok::coloncolon)) {
+        ++count;
+      } else if (Tok.is(tok::less)) {
+        ++angleCount;
+      } else if (Tok.is(tok::greater)) {
+        if (!angleCount) {
+          PP.Diag(Tok.getLocation(), diag::err_pragma_hanafuda_symbol_malformed)
+              << "patch_dol";
+          PP.Backtrack();
+          Tok = PrevTok;
+          return -1;
+        }
+        --angleCount;
+      } else if (Tok.isOneOf(tok::l_paren, tok::r_paren)) {
+        break;
+      }
+
+      PP.Lex(Tok);
+    }
+
+    if (Tok.is(tok::l_paren))
+      --count;
+
+    PP.Backtrack();
+    Tok = PrevTok;
+
+    return count;
+  }
+
   std::string ParseDeclarator(Preprocessor &PP, Token &Tok) {
-    std::string ret;
+    llvm::StringRef lastId;
+    std::ostringstream ret;
+    std::ostringstream lastType;
+    std::streamoff strFuncIdx = 0;
+
     int parenCount = 0;
     int angleCount = 0;
+    bool needsQualCount = true;
+    bool needsConst = false;
+    bool needsPointer = false;
+    bool needsReference = false;
+
+    auto FinishType = [&](bool withLast) {
+      if (lastType.tellp() || (withLast && lastId.size())) {
+        if (needsPointer) {
+          ret << 'P';
+          needsPointer = false;
+        }
+        if (needsReference) {
+          ret << 'R';
+          needsReference = false;
+        }
+        if (needsConst) {
+          ret << 'C';
+          needsConst = false;
+        }
+        ret << lastType.str();
+        if (withLast && lastId.size()) {
+          ret << lastId.size();
+          ret << lastId.data();
+        }
+        lastType = std::ostringstream();
+      }
+    };
+
     while (parenCount || angleCount || (Tok.isNot(tok::comma) && Tok.isNot(tok::r_paren))) {
-      if (Tok.is(tok::identifier)) {
-        IdentifierInfo *II = Tok.getIdentifierInfo();
-        ret += II->getName();
-      } else if (Tok.is(tok::coloncolon)) {
-        ret += "::";
+      char kwSym = TypeSymbol(Tok);
+
+      if (kwSym || Tok.is(tok::identifier)) {
+        if (needsQualCount) {
+          FinishType(true);
+          int qualCount = CountQualifiers(PP, Tok);
+          if (qualCount == -1)
+            return {};
+          if (qualCount > 1)
+            lastType << 'Q' << qualCount;
+          needsQualCount = false;
+        }
+
+        if (kwSym)
+          lastType << kwSym;
+        else {
+          IdentifierInfo *II = Tok.getIdentifierInfo();
+          if (lastId.size()) {
+            lastType << lastId.size();
+            lastType << lastId.data();
+          }
+          lastId = II->getName();
+        }
+        lastType.flush();
+
       } else if (Tok.is(tok::less)) {
-        ret += '<';
+        ret << '<';
         ++angleCount;
+        needsQualCount = true;
+
       } else if (Tok.is(tok::greater)) {
         if (!angleCount) {
           PP.Diag(Tok.getLocation(), diag::err_pragma_hanafuda_symbol_malformed)
               << "patch_dol";
           return {};
         }
-        ret += '>';
+        ret << '>';
         --angleCount;
+        needsQualCount = true;
+
       } else if (Tok.is(tok::l_paren)) {
-        ret += '(';
+        if (lastId.size()) {
+          ret << lastId.data();
+          ret << "__";
+          lastId = {};
+        }
+        FinishType(false);
         ++parenCount;
+        needsQualCount = true;
+        if (IsConstantFunction(PP, Tok))
+          ret << 'C';
+        ret << 'F';
+        ret.flush();
+        strFuncIdx = ret.tellp();
+
       } else if (Tok.is(tok::r_paren)) {
         if (!parenCount) {
           PP.Diag(Tok.getLocation(), diag::err_pragma_hanafuda_symbol_malformed)
               << "patch_dol";
           return {};
         }
-        ret += ')';
         --parenCount;
+        needsQualCount = true;
+        PP.Lex(Tok);
+        break;
+
+      } else if (Tok.is(tok::comma)) {
+        FinishType(true);
+        needsQualCount = true;
+
+      } else if (Tok.is(tok::star)) {
+        needsPointer = true;
+      } else if (Tok.is(tok::amp)) {
+        needsReference = true;
+      } else if (Tok.is(tok::kw_const)) {
+        needsConst = true;
       }
 
       PP.Lex(Tok);
     }
 
-    if (ret.empty())
+    if (needsQualCount)
+      FinishType(true);
+
+    ret.flush();
+    if (ret.tellp() == 0) {
       PP.Diag(Tok.getLocation(), diag::err_pragma_hanafuda_symbol_malformed)
           << "patch_dol";
-    return ret;
+      return {};
+    }
+
+    if (strFuncIdx == ret.tellp()) {
+      ret << 'v';
+      ret.flush();
+    }
+
+    return ret.str();
   }
 
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
@@ -239,8 +434,6 @@ struct PragmaPatchDolHandler : public PragmaHandler {
     std::string New = ParseDeclarator(PP, Tok);
     if (New.empty())
       return;
-    printf("%s\n", New.c_str());
-    fflush(stdout);
 
     std::string Old;
     if (Tok.is(tok::comma)) {
@@ -248,8 +441,6 @@ struct PragmaPatchDolHandler : public PragmaHandler {
       Old = ParseDeclarator(PP, Tok);
       if (Old.empty())
         return;
-      printf("%s\n", Old.c_str());
-      fflush(stdout);
     }
 
     if (Tok.isNot(tok::r_paren)) {

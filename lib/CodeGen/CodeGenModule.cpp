@@ -1154,6 +1154,16 @@ void CodeGenModule::AddDependentLib(StringRef Lib) {
   LinkerOptionsMetadata.push_back(llvm::MDNode::get(getLLVMContext(), MDOpts));
 }
 
+void CodeGenModule::AddHanafudaPatch(StringRef New, StringRef Old) {
+  llvm::ArrayRef<llvm::Metadata *> TupleArr =
+      {llvm::MDNode::get(getLLVMContext(),
+         llvm::MDString::get(getLLVMContext(), New)),
+       llvm::MDNode::get(getLLVMContext(),
+         llvm::MDString::get(getLLVMContext(), Old))};
+  auto *MDOpts = llvm::MDTuple::get(getLLVMContext(), TupleArr);
+  HanafudaPatchMetadata.push_back(llvm::MDNode::get(getLLVMContext(), MDOpts));
+}
+
 /// \brief Add link options implied by the given module, including modules
 /// it depends on, using a postorder walk.
 static void addLinkOptionsPostorder(CodeGenModule &CGM, Module *Mod,
@@ -3919,6 +3929,12 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     break;
   }
 
+  case Decl::PragmaPatch: {
+    const auto *PPD = cast<PragmaPatchDecl>(D);
+    AddHanafudaPatch(PPD->getNew(), PPD->getOld());
+    break;
+  }
+
   case Decl::PragmaDetectMismatch: {
     const auto *PDMD = cast<PragmaDetectMismatchDecl>(D);
     AddDetectMismatch(PDMD->getName(), PDMD->getValue());
@@ -4220,11 +4236,10 @@ void CodeGenModule::EmitTargetMetadata() {
 }
 
 void CodeGenModule::EmitHanafudaPatchMetadata() {
-  llvm::NamedMDNode *PatchMetadata =
-    TheModule.getOrInsertNamedMetadata("llvm.hanafuda.patch");
-  llvm::LLVMContext &Ctx = TheModule.getContext();
-
-  PatchMetadata->addOperand(llvm::MDNode::get(Ctx, HanafudaPatchMDNodes));
+  // Add the linker options metadata flag.
+  getModule().addModuleFlag(llvm::Module::AppendUnique, "Hanafuda Patches",
+                            llvm::MDNode::get(getLLVMContext(),
+                                              HanafudaPatchMetadata));
 }
 
 void CodeGenModule::EmitCoverageFile() {

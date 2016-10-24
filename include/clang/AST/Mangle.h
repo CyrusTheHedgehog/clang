@@ -72,7 +72,7 @@ public:
   DiagnosticsEngine &getDiags() const { return Diags; }
 
   virtual void startNewFunction() { LocalBlockIds.clear(); }
-  
+
   unsigned getBlockId(const BlockDecl *BD, bool Local) {
     llvm::DenseMap<const BlockDecl *, unsigned> &BlockIds
       = Local? LocalBlockIds : GlobalBlockIds;
