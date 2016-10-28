@@ -556,6 +556,9 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   }
 
   setLTOMode(Args);
+  if (IsHanafudaMode() || IsHanafudaXXMode())
+      if (LTOMode != LTOK_Thin)
+        LTOMode = LTOK_Full;
 
   // Ignore -fembed-bitcode options with LTO
   // since the output will be bitcode anyway.

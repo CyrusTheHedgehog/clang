@@ -20,6 +20,7 @@
 #include "clang/Parse/Parser.h"
 #include "clang/Sema/LoopHint.h"
 #include "clang/Sema/Scope.h"
+#include "clang/CodeGen/ModuleBuilder.h"
 #include "llvm/ADT/StringSwitch.h"
 #include <sstream>
 using namespace clang;
@@ -283,7 +284,7 @@ struct PragmaPatchDolHandler : public PragmaHandler {
     return count;
   }
 
-  std::string ParseDeclarator(Preprocessor &PP, Token &Tok) {
+  static std::string ParseDeclarator(Preprocessor &PP, Token &Tok) {
     llvm::StringRef lastId;
     std::ostringstream ret;
     std::ostringstream lastType;
@@ -421,6 +422,7 @@ struct PragmaPatchDolHandler : public PragmaHandler {
 
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                     Token &Tok) override {
+    clang::CodeGenerator *CG = Actions.Consumer.getAsCodeGenerator();
     SourceLocation CommentLoc = Tok.getLocation();
     PP.Lex(Tok);
 

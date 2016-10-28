@@ -1161,7 +1161,7 @@ void CodeGenModule::AddHanafudaPatch(StringRef New, StringRef Old) {
        llvm::MDNode::get(getLLVMContext(),
          llvm::MDString::get(getLLVMContext(), Old))};
   auto *MDOpts = llvm::MDTuple::get(getLLVMContext(), TupleArr);
-  HanafudaPatchMetadata.push_back(llvm::MDNode::get(getLLVMContext(), MDOpts));
+  HanafudaPatchMetadata.push_back(MDOpts);
 }
 
 /// \brief Add link options implied by the given module, including modules
@@ -4236,9 +4236,9 @@ void CodeGenModule::EmitTargetMetadata() {
 }
 
 void CodeGenModule::EmitHanafudaPatchMetadata() {
-  // Add the linker options metadata flag.
-  getModule().addModuleFlag(llvm::Module::AppendUnique, "Hanafuda Patches",
-                            llvm::MDNode::get(getLLVMContext(),
+  llvm::NamedMDNode *PatchMetadata =
+    TheModule.getOrInsertNamedMetadata("hanafuda.patches");
+  PatchMetadata->addOperand(llvm::MDNode::get(getLLVMContext(),
                                               HanafudaPatchMetadata));
 }
 

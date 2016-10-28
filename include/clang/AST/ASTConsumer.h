@@ -27,6 +27,7 @@ namespace clang {
   class VarDecl;
   class FunctionDecl;
   class ImportDecl;
+  class CodeGenerator;
 
 /// ASTConsumer - This is an abstract interface that should be implemented by
 /// clients that read ASTs.  This abstraction layer allows the client to be
@@ -139,6 +140,8 @@ public:
   /// body may be parsed anyway if it is needed (for instance, if it contains
   /// the code completion point or is constexpr).
   virtual bool shouldSkipFunctionBody(Decl *D) { return true; }
+
+  virtual CodeGenerator *getAsCodeGenerator() { return nullptr; }
 };
 
 } // end namespace clang.
