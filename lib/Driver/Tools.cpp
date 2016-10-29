@@ -11965,7 +11965,7 @@ void hanafuda::Link::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(TCArgs.MakeArgString(Quoted));
   }
 
-  AddLinkerInputs(getToolChain(), Inputs, TCArgs, CmdArgs);
+  AddLinkerInputs(getToolChain(), Inputs, TCArgs, CmdArgs, JA);
 
   auto Exec = getToolChain().GetProgramPath("lld-hanafuda");
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec.c_str(), CmdArgs, Inputs));
