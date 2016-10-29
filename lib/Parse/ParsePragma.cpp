@@ -404,6 +404,8 @@ struct PragmaPatchDolHandler : public PragmaHandler {
 
     if (needsQualCount)
       FinishType(true);
+    else if (ret.tellp() == 0 && lastId.size())
+      ret << lastId.data();
 
     ret.flush();
     if (ret.tellp() == 0) {
