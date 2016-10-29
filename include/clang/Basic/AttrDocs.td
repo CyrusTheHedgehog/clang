@@ -2649,3 +2649,29 @@ Conversely, ``__attribute__((xray_never_instrument))`` or ``[[clang::xray_never_
 If a function has neither of these attributes, they become subject to the XRay heuristics used to determine whether a function should be instrumented or otherwise.
   }];
 }
+
+def TransparentUnionDocs : Documentation {
+  let Category = DocCatType;
+  let Content = [{
+This attribute can be applied to a union to change the behaviour of calls to
+functions that have an argument with a transparent union type. The compiler
+behaviour is changed in the following manner:
+
+- A value whose type is any member of the transparent union can be passed as an
+argument without the need to cast that value.
+
+- The argument is passed to the function using the calling convention of the
+first member of the transparent union. Consequently, all the members of the
+transparent union should have the same calling convention as its first member.
+
+Transparent unions are not supported in C++.
+  }];
+}
+
+def ObjCSubclassingRestrictedDocs : Documentation {
+  let Category = DocCatType;
+  let Content = [{
+This attribute can be added to an Objective-C ``@interface`` declaration to
+ensure that this class cannot be subclassed.
+  }];
+}

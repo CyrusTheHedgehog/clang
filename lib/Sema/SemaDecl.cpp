@@ -1522,7 +1522,7 @@ static bool ShouldDiagnoseUnusedDecl(const NamedDecl *D) {
   if (const VarDecl *VD = dyn_cast<VarDecl>(D)) {
 
     // White-list anything with an __attribute__((unused)) type.
-    QualType Ty = VD->getType();
+    const auto *Ty = VD->getType().getTypePtr();
 
     // Only look at the outermost level of typedef.
     if (const TypedefType *TT = Ty->getAs<TypedefType>()) {
@@ -1534,6 +1534,10 @@ static bool ShouldDiagnoseUnusedDecl(const NamedDecl *D) {
     // dependent, don't diagnose the variable.
     if (Ty->isIncompleteType() || Ty->isDependentType())
       return false;
+
+    // Look at the element type to ensure that the warning behaviour is
+    // consistent for both scalars and arrays.
+    Ty = Ty->getBaseElementTypeUnsafe();
 
     if (const TagType *TT = Ty->getAs<TagType>()) {
       const TagDecl *Tag = TT->getDecl();
@@ -5758,23 +5762,7 @@ static bool isFunctionDefinitionDiscarded(Sema &S, FunctionDecl *FD) {
     return false;
 
   // Okay, go ahead and call the relatively-more-expensive function.
-
-#ifndef NDEBUG
-  // AST quite reasonably asserts that it's working on a function
-  // definition.  We don't really have a way to tell it that we're
-  // currently defining the function, so just lie to it in +Asserts
-  // builds.  This is an awful hack.
-  FD->setLazyBody(1);
-#endif
-
-  bool isC99Inline =
-      S.Context.GetGVALinkageForFunction(FD) == GVA_AvailableExternally;
-
-#ifndef NDEBUG
-  FD->setLazyBody(0);
-#endif
-
-  return isC99Inline;
+  return S.Context.GetGVALinkageForFunction(FD) == GVA_AvailableExternally;
 }
 
 /// Determine whether a variable is extern "C" prior to attaching
@@ -6881,17 +6869,6 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
       }
       if (NewVD->hasExternalStorage()) {
         Diag(NewVD->getLocation(), diag::err_opencl_extern_block_declaration);
-        NewVD->setInvalidDecl();
-        return;
-      }
-      // OpenCL v2.0 s6.12.5 - Blocks with variadic arguments are not supported.
-      // TODO: this check is not enough as it doesn't diagnose the typedef
-      const BlockPointerType *BlkTy = T->getAs<BlockPointerType>();
-      const FunctionProtoType *FTy =
-          BlkTy->getPointeeType()->getAs<FunctionProtoType>();
-      if (FTy && FTy->isVariadic()) {
-        Diag(NewVD->getLocation(), diag::err_opencl_block_proto_variadic)
-            << T << NewVD->getSourceRange();
         NewVD->setInvalidDecl();
         return;
       }
@@ -8995,6 +8972,42 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
       else if (!R.isPODType(Context) && !R->isVoidType() &&
                !R->isObjCObjectPointerType())
         Diag(NewFD->getLocation(), diag::warn_return_value_udt) << NewFD << R;
+    }
+
+    // C++1z [dcl.fct]p6:
+    //   [...] whether the function has a non-throwing exception-specification
+    //   [is] part of the function type
+    //
+    // This results in an ABI break between C++14 and C++17 for functions whose
+    // declared type includes an exception-specification in a parameter or
+    // return type. (Exception specifications on the function itself are OK in
+    // most cases, and exception specifications are not permitted in most other
+    // contexts where they could make it into a mangling.)
+    if (!getLangOpts().CPlusPlus1z && !NewFD->getPrimaryTemplate()) {
+      auto HasNoexcept = [&](QualType T) -> bool {
+        // Strip off declarator chunks that could be between us and a function
+        // type. We don't need to look far, exception specifications are very
+        // restricted prior to C++17.
+        if (auto *RT = T->getAs<ReferenceType>())
+          T = RT->getPointeeType();
+        else if (T->isAnyPointerType())
+          T = T->getPointeeType();
+        else if (auto *MPT = T->getAs<MemberPointerType>())
+          T = MPT->getPointeeType();
+        if (auto *FPT = T->getAs<FunctionProtoType>())
+          if (FPT->isNothrow(Context))
+            return true;
+        return false;
+      };
+
+      auto *FPT = NewFD->getType()->castAs<FunctionProtoType>();
+      bool AnyNoexcept = HasNoexcept(FPT->getReturnType());
+      for (QualType T : FPT->param_types())
+        AnyNoexcept |= HasNoexcept(T);
+      if (AnyNoexcept)
+        Diag(NewFD->getLocation(),
+             diag::warn_cxx1z_compat_exception_spec_in_signature)
+            << NewFD;
     }
   }
   return Redeclaration;
@@ -11458,6 +11471,11 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D,
       return D;
   }
 
+  // Mark this function as "will have a body eventually".  This lets users to
+  // call e.g. isInlineDefinitionExternallyVisible while we're still parsing
+  // this function.
+  FD->setWillHaveBody();
+
   // If we are instantiating a generic lambda call operator, push
   // a LambdaScopeInfo onto the function stack.  But use the information
   // that's already been calculated (ActOnLambdaExpr) to prime the current
@@ -13350,7 +13368,14 @@ CreateNewDecl:
   OwnedDecl = true;
   // In C++, don't return an invalid declaration. We can't recover well from
   // the cases where we make the type anonymous.
-  return (Invalid && getLangOpts().CPlusPlus) ? nullptr : New;
+  if (Invalid && getLangOpts().CPlusPlus) {
+    if (New->isBeingDefined())
+      if (auto RD = dyn_cast<RecordDecl>(New))
+        RD->completeDefinition();
+    return nullptr;
+  } else {
+    return New;
+  }
 }
 
 void Sema::ActOnTagStartDefinition(Scope *S, Decl *TagD) {
@@ -15626,30 +15651,4 @@ void Sema::ActOnPragmaWeakAlias(IdentifierInfo* Name,
 
 Decl *Sema::getObjCDeclContext() const {
   return (dyn_cast_or_null<ObjCContainerDecl>(CurContext));
-}
-
-AvailabilityResult Sema::getCurContextAvailability() const {
-  const Decl *D = cast_or_null<Decl>(getCurObjCLexicalContext());
-  if (!D)
-    return AR_Available;
-
-  // If we are within an Objective-C method, we should consult
-  // both the availability of the method as well as the
-  // enclosing class.  If the class is (say) deprecated,
-  // the entire method is considered deprecated from the
-  // purpose of checking if the current context is deprecated.
-  if (const ObjCMethodDecl *MD = dyn_cast<ObjCMethodDecl>(D)) {
-    AvailabilityResult R = MD->getAvailability();
-    if (R != AR_Available)
-      return R;
-    D = MD->getClassInterface();
-  }
-  // If we are within an Objective-c @implementation, it
-  // gets the same availability context as the @interface.
-  else if (const ObjCImplementationDecl *ID =
-            dyn_cast<ObjCImplementationDecl>(D)) {
-    D = ID->getClassInterface();
-  }
-  // Recover from user error.
-  return D ? D->getAvailability() : AR_Available;
 }

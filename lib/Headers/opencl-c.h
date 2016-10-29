@@ -14616,6 +14616,13 @@ int __ovld atom_xor(volatile __local int *p, int val);
 unsigned int __ovld atom_xor(volatile __local unsigned int *p, unsigned int val);
 #endif
 
+#if defined(cl_khr_int64_extended_atomics)
+long __ovld atom_xor(volatile __global long *p, long val);
+unsigned long __ovld atom_xor(volatile __global unsigned long *p, unsigned long val);
+long __ovld atom_xor(volatile __local long *p, long val);
+unsigned long __ovld atom_xor(volatile __local unsigned long *p, unsigned long val);
+#endif
+
 #if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : disable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : disable
@@ -15452,9 +15459,11 @@ half16 __ovld __cnfn shuffle2(half8 x, half8 y, ushort16 mask);
 half16 __ovld __cnfn shuffle2(half16 x, half16 y, ushort16 mask);
 #endif //cl_khr_fp16
 
+#if __OPENCL_C_VERSION__ >= CL_VERSION_1_2
 // OpenCL v1.2 s6.12.13, v2.0 s6.13.13 - printf
 
 int printf(__constant const char* st, ...);
+#endif
 
 // OpenCL v1.1 s6.11.3, v1.2 s6.12.14, v2.0 s6.13.14 - Image Read and Write Functions
 

@@ -1285,6 +1285,12 @@ def ObjCRootClass : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def ObjCSubclassingRestricted : InheritableAttr {
+  let Spellings = [GNU<"objc_subclassing_restricted">];
+  let Subjects = SubjectList<[ObjCInterface], ErrorDiag>;
+  let Documentation = [ObjCSubclassingRestrictedDocs];
+}
+
 def ObjCExplicitProtocolImpl : InheritableAttr {
   let Spellings = [GNU<"objc_protocol_requires_explicit_implementation">];
   let Subjects = SubjectList<[ObjCProtocol], ErrorDiag>;
@@ -1542,7 +1548,7 @@ def Target : InheritableAttr {
 def TransparentUnion : InheritableAttr {
   let Spellings = [GCC<"transparent_union">];
 //  let Subjects = SubjectList<[Record, TypedefName]>;
-  let Documentation = [Undocumented];
+  let Documentation = [TransparentUnionDocs];
   let LangOpts = [COnly];
 }
 
