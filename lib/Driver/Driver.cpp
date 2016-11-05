@@ -887,8 +887,7 @@ void Driver::setUpResponseFiles(Compilation &C, Command &Cmd) {
     return;
 
   std::string TmpName = GetTemporaryPath("response", "txt");
-  Cmd.setResponseFile(
-      C.addTempFile(C.getArgs().MakeArgString(TmpName.c_str())));
+  Cmd.setResponseFile(C.addTempFile(C.getArgs().MakeArgString(TmpName)));
 }
 
 int Driver::ExecuteCompilation(
@@ -3213,7 +3212,7 @@ InputInfo Driver::BuildJobsForActionNoCache(
           C.getArgsForToolChain(TC, BoundArch, JA->getOffloadingDeviceKind()),
           LinkingOutput);
     else
-      T->ConstructJob(
+      T->ConstructJobMultipleOutputs(
           C, *JA, UnbundlingResults, InputInfos,
           C.getArgsForToolChain(TC, BoundArch, JA->getOffloadingDeviceKind()),
           LinkingOutput);
@@ -3308,7 +3307,7 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
     std::pair<StringRef, StringRef> Split = Name.split('.');
     std::string TmpName = GetTemporaryPath(
         Split.first, types::getTypeTempSuffix(JA.getType(), IsCLMode()));
-    return C.addTempFile(C.getArgs().MakeArgString(TmpName.c_str()));
+    return C.addTempFile(C.getArgs().MakeArgString(TmpName));
   }
 
   SmallString<128> BasePath(BaseInput);
@@ -3357,7 +3356,7 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
       NamedOutput = C.getArgs().MakeArgString(Output.c_str());
     }
   } else if (JA.getType() == types::TY_PCH && IsCLMode()) {
-    NamedOutput = C.getArgs().MakeArgString(GetClPchPath(C, BaseName).c_str());
+    NamedOutput = C.getArgs().MakeArgString(GetClPchPath(C, BaseName));
   } else {
     const char *Suffix = types::getTypeTempSuffix(JA.getType(), IsCLMode());
     assert(Suffix && "All types used for output should have a suffix.");
@@ -3407,7 +3406,7 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
       std::pair<StringRef, StringRef> Split = Name.split('.');
       std::string TmpName = GetTemporaryPath(
           Split.first, types::getTypeTempSuffix(JA.getType(), IsCLMode()));
-      return C.addTempFile(C.getArgs().MakeArgString(TmpName.c_str()));
+      return C.addTempFile(C.getArgs().MakeArgString(TmpName));
     }
   }
 

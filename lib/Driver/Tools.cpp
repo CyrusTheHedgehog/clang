@@ -7138,11 +7138,10 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs, None));
 }
 
-void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
-                                  const InputInfoList &Outputs,
-                                  const InputInfoList &Inputs,
-                                  const llvm::opt::ArgList &TCArgs,
-                                  const char *LinkingOutput) const {
+void OffloadBundler::ConstructJobMultipleOutputs(
+    Compilation &C, const JobAction &JA, const InputInfoList &Outputs,
+    const InputInfoList &Inputs, const llvm::opt::ArgList &TCArgs,
+    const char *LinkingOutput) const {
   // The version with multiple outputs is expected to refer to a unbundling job.
   auto &UA = cast<OffloadUnbundlingJobAction>(JA);
 
@@ -10758,14 +10757,14 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         std::string UniversalCRTLibPath;
         if (MSVC.getUniversalCRTLibraryPath(UniversalCRTLibPath))
           CmdArgs.push_back(Args.MakeArgString(std::string("-libpath:") +
-                                               UniversalCRTLibPath.c_str()));
+                                               UniversalCRTLibPath));
       }
     }
 
     std::string WindowsSdkLibPath;
     if (MSVC.getWindowsSDKLibraryPath(WindowsSdkLibPath))
-      CmdArgs.push_back(Args.MakeArgString(std::string("-libpath:") +
-                                           WindowsSdkLibPath.c_str()));
+      CmdArgs.push_back(
+          Args.MakeArgString(std::string("-libpath:") + WindowsSdkLibPath));
   }
 
   if (!C.getDriver().IsCLMode() && Args.hasArg(options::OPT_L))
@@ -10791,7 +10790,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (TC.getSanitizerArgs().needsAsanRt()) {
     CmdArgs.push_back(Args.MakeArgString("-debug"));
     CmdArgs.push_back(Args.MakeArgString("-incremental:no"));
-    if (Args.hasArg(options::OPT__SLASH_MD, options::OPT__SLASH_MDd)) {
+    if (TC.getSanitizerArgs().needsSharedAsanRt() ||
+        Args.hasArg(options::OPT__SLASH_MD, options::OPT__SLASH_MDd)) {
       for (const auto &Lib : {"asan_dynamic", "asan_dynamic_runtime_thunk"})
         CmdArgs.push_back(TC.getCompilerRTArgString(Args, Lib));
       // Make sure the dynamic runtime thunk is not optimized out at link time

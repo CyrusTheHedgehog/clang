@@ -2905,6 +2905,7 @@ public:
     case CC_X86FastCall:
     case CC_X86StdCall:
     case CC_X86VectorCall:
+    case CC_X86RegCall:
     case CC_C:
     case CC_Swift:
     case CC_X86Pascal:
@@ -4514,6 +4515,7 @@ public:
     case CC_X86_64Win64:
     case CC_PreserveMost:
     case CC_PreserveAll:
+    case CC_X86RegCall:
       return CCCR_OK;
     default:
       return CCCR_Warning;
@@ -4586,6 +4588,7 @@ public:
     case CC_IntelOclBicc:
     case CC_X86_64SysV:
     case CC_Swift:
+    case CC_X86RegCall:
       return CCCR_OK;
     default:
       return CCCR_Warning;
