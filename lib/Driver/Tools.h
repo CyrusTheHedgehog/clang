@@ -954,6 +954,7 @@ public:
 
 namespace hanafuda {
 class LLVM_LIBRARY_VISIBILITY Link : public Tool {
+  std::string LinkExec;
 public:
   Link(const ToolChain &TC) : Tool("hanafuda::Link", "linker", TC, RF_Full) {}
 

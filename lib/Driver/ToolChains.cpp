@@ -5365,9 +5365,14 @@ Hanafuda::Hanafuda(const Driver &D, const llvm::Triple &Triple,
 : ToolChain(D, Triple, Args)
 {
   getProgramPaths().push_back(getDriver().getInstalledDir());
+
+  // Use lld-hanafuda by default.
+  DefaultLinker = "lld-hanafuda";
 }
 
 Tool *Hanafuda::buildLinker() const { return new tools::hanafuda::Link(*this); }
+
+Tool *Hanafuda::buildAssembler() const { return new tools::ClangAs(*this); }
 
 Contiki::Contiki(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
     : Generic_ELF(D, Triple, Args) {}

@@ -11998,8 +11998,8 @@ void hanafuda::Link::ConstructJob(Compilation &C, const JobAction &JA,
 
   AddLinkerInputs(getToolChain(), Inputs, TCArgs, CmdArgs, JA);
 
-  auto Exec = getToolChain().GetProgramPath("lld-hanafuda");
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec.c_str(), CmdArgs, Inputs));
+  const_cast<std::string &>(LinkExec) = getToolChain().GetLinkerPath();
+  C.addCommand(llvm::make_unique<Command>(JA, *this, LinkExec.c_str(), CmdArgs, Inputs));
 }
 
 void NVPTX::Assembler::ConstructJob(Compilation &C, const JobAction &JA,

@@ -1303,6 +1303,7 @@ public:
 
 protected:
   Tool *buildLinker() const override;
+  Tool *buildAssembler() const override;
 };
 
 } // end namespace toolchains
