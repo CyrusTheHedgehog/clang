@@ -11391,6 +11391,8 @@ TEST_F(FormatTest, TripleAngleBrackets) {
   EXPECT_EQ("f<param><<<1, 1>>>();", format("f< param > <<< 1, 1 >>> ();"));
   verifyFormat("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                "aaaaaaaaaaa<<<\n    1, 1>>>();");
+  verifyFormat("aaaaaaaaaaaaaaa<aaaaaaaaa, aaaaaaaaaa, aaaaaaaaaaaaaa>\n"
+               "    <<<aaaaaaaaa, aaaaaaaaaa, aaaaaaaaaaaaaaaaaa>>>();");
 }
 
 TEST_F(FormatTest, MergeLessLessAtEnd) {
@@ -11540,6 +11542,26 @@ TEST_F(FormatTest, FormatsTableGenCode) {
   FormatStyle Style = getLLVMStyle();
   Style.Language = FormatStyle::LK_TableGen;
   verifyFormat("include \"a.td\"\ninclude \"b.td\"", Style);
+}
+
+TEST_F(FormatTest, ArrayOfTemplates) {
+  EXPECT_EQ("auto a = new unique_ptr<int>[10];",
+            format("auto a = new unique_ptr<int > [ 10];"));
+
+  FormatStyle Spaces = getLLVMStyle();
+  Spaces.SpacesInSquareBrackets = true;
+  EXPECT_EQ("auto a = new unique_ptr<int>[ 10 ];",
+            format("auto a = new unique_ptr<int > [10];", Spaces));
+}
+
+TEST_F(FormatTest, ArrayAsTemplateType) {
+  EXPECT_EQ("auto a = unique_ptr<Foo<Bar>[10]>;",
+            format("auto a = unique_ptr < Foo < Bar>[ 10]> ;"));
+
+  FormatStyle Spaces = getLLVMStyle();
+  Spaces.SpacesInSquareBrackets = true;
+  EXPECT_EQ("auto a = unique_ptr<Foo<Bar>[ 10 ]>;",
+            format("auto a = unique_ptr < Foo < Bar>[10]> ;", Spaces));
 }
 
 // Since this test case uses UNIX-style file path. We disable it for MS

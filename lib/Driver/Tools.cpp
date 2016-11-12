@@ -1632,7 +1632,8 @@ void Clang::AddMIPSTargetArgs(const ArgList &Args,
     }
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_G)) {
+  if (Arg *A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
+                               options::OPT_msmall_data_threshold_EQ)) {
     StringRef v = A->getValue();
     CmdArgs.push_back("-mllvm");
     CmdArgs.push_back(Args.MakeArgString("-mips-ssection-threshold=" + v));
@@ -1817,6 +1818,14 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
   if (ABIName) {
     CmdArgs.push_back("-target-abi");
     CmdArgs.push_back(ABIName);
+  }
+
+  if (Arg *A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
+                               options::OPT_msmall_data_threshold_EQ)) {
+    StringRef v = A->getValue();
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back(Args.MakeArgString("-ppc-ssection-threshold=" + v));
+    A->claim();
   }
 }
 
@@ -9061,7 +9070,8 @@ void freebsd::Assembler::ConstructJob(Compilation &C, const JobAction &JA,
     else
       CmdArgs.push_back("-EL");
 
-    if (Arg *A = Args.getLastArg(options::OPT_G)) {
+    if (Arg *A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
+                                 options::OPT_msmall_data_threshold_EQ)) {
       StringRef v = A->getValue();
       CmdArgs.push_back(Args.MakeArgString("-G" + v));
       A->claim();
@@ -9176,7 +9186,8 @@ void freebsd::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("elf32ppc_fbsd");
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_G)) {
+  if (Arg *A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
+                               options::OPT_msmall_data_threshold_EQ)) {
     if (ToolChain.getArch() == llvm::Triple::mips ||
       ToolChain.getArch() == llvm::Triple::mipsel ||
       ToolChain.getArch() == llvm::Triple::mips64 ||
@@ -10982,6 +10993,14 @@ std::unique_ptr<Command> visualstudio::Compiler::GetCommand(
   if (Arg *A = Args.getLastArg(options::OPT__SLASH_MD, options::OPT__SLASH_MDd,
                                options::OPT__SLASH_MT, options::OPT__SLASH_MTd))
     A->render(Args, CmdArgs);
+
+  // Use MSVC's default threadsafe statics behaviour unless there was a flag.
+  if (Arg *A = Args.getLastArg(options::OPT_fthreadsafe_statics,
+                               options::OPT_fno_threadsafe_statics)) {
+    CmdArgs.push_back(A->getOption().getID() == options::OPT_fthreadsafe_statics
+                          ? "/Zc:threadSafeInit"
+                          : "/Zc:threadSafeInit-");
+  }
 
   // Pass through all unknown arguments so that the fallback command can see
   // them too.
