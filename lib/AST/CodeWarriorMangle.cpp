@@ -359,7 +359,6 @@ void CodeWarriorMangleContextImpl::mangleCXXName(const NamedDecl *D,
         PrintType(Param->getType(), getASTContext(), Out);
 
   } else if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
-    FD->dump();
     FD->getNameInfo().printName(Out);
     const TemplateArgumentList *TArgs = FD->getTemplateSpecializationArgs();
     if (TArgs)
