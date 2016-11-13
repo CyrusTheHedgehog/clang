@@ -1642,6 +1642,7 @@ public:
     case llvm::Triple::Linux:
     case llvm::Triple::FreeBSD:
     case llvm::Triple::NetBSD:
+    case llvm::Triple::Hanafuda:
       SizeType = UnsignedInt;
       PtrDiffType = SignedInt;
       IntPtrType = SignedInt;
@@ -1653,6 +1654,10 @@ public:
     if (getTriple().getOS() == llvm::Triple::FreeBSD) {
       LongDoubleWidth = LongDoubleAlign = 64;
       LongDoubleFormat = &llvm::APFloat::IEEEdouble;
+    } else if (getTriple().getOS() == llvm::Triple::Hanafuda) {
+      LongDoubleWidth = LongDoubleAlign = 64;
+      LongDoubleFormat = &llvm::APFloat::IEEEdouble;
+      TheCXXABI.set(TargetCXXABI::CodeWarriorPowerPC);
     }
 
     // PPC32 supports atomics up to 4 bytes.

@@ -10,6 +10,7 @@ add_clang_library(clangAST
   ASTTypeTraits.cpp
   AttrImpl.cpp
   CXXInheritance.cpp
+  CodeWarriorMangle.cpp
   Comment.cpp
   CommentBriefParser.cpp
   CommentCommandTraits.cpp

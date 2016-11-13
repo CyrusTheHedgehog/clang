@@ -43,7 +43,8 @@ class MangleContext {
 public:
   enum ManglerKind {
     MK_Itanium,
-    MK_Microsoft
+    MK_Microsoft,
+    MK_CodeWarrior
   };
 
 private:
@@ -150,6 +151,10 @@ public:
 };
 
 class ItaniumMangleContext : public MangleContext {
+protected:
+  explicit ItaniumMangleContext(ASTContext &C, DiagnosticsEngine &D,
+                                ManglerKind Kind)
+      : MangleContext(C, D, Kind) {}
 public:
   explicit ItaniumMangleContext(ASTContext &C, DiagnosticsEngine &D)
       : MangleContext(C, D, MK_Itanium) {}
@@ -240,6 +245,34 @@ public:
 
   static MicrosoftMangleContext *create(ASTContext &Context,
                                         DiagnosticsEngine &Diags);
+};
+
+class CodeWarriorMangleContext : public ItaniumMangleContext {
+public:
+  explicit CodeWarriorMangleContext(ASTContext &C, DiagnosticsEngine &D)
+      : ItaniumMangleContext(C, D, MK_CodeWarrior) {}
+
+  virtual void mangleCXXVTable(const CXXRecordDecl *RD, raw_ostream &) = 0;
+  virtual void mangleCXXVTT(const CXXRecordDecl *RD, raw_ostream &) = 0;
+  virtual void mangleCXXCtorVTable(const CXXRecordDecl *RD, int64_t Offset,
+                                   const CXXRecordDecl *Type,
+                                   raw_ostream &) = 0;
+  virtual void mangleItaniumThreadLocalInit(const VarDecl *D,
+                                            raw_ostream &) = 0;
+  virtual void mangleItaniumThreadLocalWrapper(const VarDecl *D,
+                                               raw_ostream &) = 0;
+
+  virtual void mangleCXXCtorComdat(const CXXConstructorDecl *D,
+                                   raw_ostream &) = 0;
+  virtual void mangleCXXDtorComdat(const CXXDestructorDecl *D,
+                                   raw_ostream &) = 0;
+
+  static bool classof(const MangleContext *C) {
+    return C->getKind() == MK_CodeWarrior;
+  }
+
+  static CodeWarriorMangleContext *create(ASTContext &Context,
+                                          DiagnosticsEngine &Diags);
 };
 }
 

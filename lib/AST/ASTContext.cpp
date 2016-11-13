@@ -9043,8 +9043,9 @@ MangleContext *ASTContext::createMangleContext() {
   case TargetCXXABI::iOS64:
   case TargetCXXABI::WebAssembly:
   case TargetCXXABI::WatchOS:
-  case TargetCXXABI::CodeWarriorPowerPC:
     return ItaniumMangleContext::create(*this, getDiagnostics());
+  case TargetCXXABI::CodeWarriorPowerPC:
+    return CodeWarriorMangleContext::create(*this, getDiagnostics());
   case TargetCXXABI::Microsoft:
     return MicrosoftMangleContext::create(*this, getDiagnostics());
   }
