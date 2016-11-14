@@ -1318,7 +1318,8 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
           << DS.getSourceRange()
         << FixItHint::CreateInsertion(DS.getLocStart(), "int");
       }
-    } else if (!DS.hasTypeSpecifier()) {
+    } else if (!DS.hasTypeSpecifier() &&
+               S.CurContext->getDeclKind() != Decl::PragmaPatch) {
       // C99 and C++ require a type specifier.  For example, C99 6.7.2p2 says:
       // "At least one type specifier shall be given in the declaration
       // specifiers in each declaration, and in the specifier-qualifier list in

@@ -861,6 +861,8 @@ def warn_pragma_expected_lparen : Warning<
   "missing '(' after '#pragma %0' - ignoring">, InGroup<IgnoredPragmas>;
 def warn_pragma_expected_rparen : Warning<
   "missing ')' after '#pragma %0' - ignoring">, InGroup<IgnoredPragmas>;
+def warn_pragma_expected_comma : Warning<
+  "missing ',' in '#pragma %0' - ignoring">, InGroup<IgnoredPragmas>;
 def warn_pragma_expected_identifier : Warning<
   "expected identifier in '#pragma %0' - ignored">, InGroup<IgnoredPragmas>;
 def warn_pragma_expected_section_name : Warning<

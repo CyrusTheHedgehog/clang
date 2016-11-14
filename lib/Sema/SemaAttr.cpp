@@ -208,13 +208,11 @@ void Sema::ActOnPragmaMSVtorDisp(PragmaMsStackAction Action,
   VtorDispStack.Act(PragmaLoc, Action, StringRef(), Mode);
 }
 
-void Sema::ActOnPragmaPatch(SourceLocation CommentLoc,
-                            std::string&& New, std::string&& Old) {
+PragmaPatchDecl *Sema::ActOnPragmaPatch(SourceLocation CommentLoc) {
   auto *PPD = PragmaPatchDecl::Create(
-      Context, Context.getTranslationUnitDecl(), CommentLoc,
-      std::move(New), std::move(Old));
+      Context, Context.getTranslationUnitDecl(), CommentLoc);
   Context.getTranslationUnitDecl()->addDecl(PPD);
-  Consumer.HandleTopLevelDecl(DeclGroupRef(PPD));
+  return PPD;
 }
 
 template<typename ValueType>

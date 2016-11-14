@@ -292,8 +292,6 @@ namespace clang {
         const llvm::OptimizationRemarkAnalysisAliasing &D);
     void OptimizationFailureHandler(
         const llvm::DiagnosticInfoOptimizationFailure &D);
-
-    CodeGenerator *getAsCodeGenerator() override { return Gen.get(); }
   };
 
   void BackendConsumer::anchor() {}

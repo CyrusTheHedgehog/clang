@@ -492,6 +492,9 @@ private:
   /// \brief Handle the annotation token produced for #pragma unused(...)
   void HandlePragmaUnused();
 
+  /// \brief Handle the annotation token produced for #pragma patch_dol(...)
+  void HandlePragmaPatchDol();
+
   /// \brief Handle the annotation token produced for
   /// #pragma GCC visibility...
   void HandlePragmaVisibility();

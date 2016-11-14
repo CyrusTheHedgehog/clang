@@ -140,8 +140,6 @@ public:
   /// body may be parsed anyway if it is needed (for instance, if it contains
   /// the code completion point or is constexpr).
   virtual bool shouldSkipFunctionBody(Decl *D) { return true; }
-
-  virtual CodeGenerator *getAsCodeGenerator() { return nullptr; }
 };
 
 } // end namespace clang.

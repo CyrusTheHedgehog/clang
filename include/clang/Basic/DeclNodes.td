@@ -13,7 +13,7 @@ class DeclContext { }
 def TranslationUnit : Decl, DeclContext;
 def PragmaComment : Decl;
 def PragmaDetectMismatch : Decl;
-def PragmaPatch : Decl;
+def PragmaPatch : Decl, DeclContext;
 def ExternCContext : Decl, DeclContext;
 def Named : Decl<1>;
   def Namespace : DDecl<Named>, DeclContext;

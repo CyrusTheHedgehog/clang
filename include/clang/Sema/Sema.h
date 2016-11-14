@@ -7881,7 +7881,7 @@ public:
 
 
   /// ActOnPragmaPatch - Called on well formed #pragma patch_dol
-  void ActOnPragmaPatch(SourceLocation CommentLoc, std::string&& New, std::string&& Old);
+  PragmaPatchDecl *ActOnPragmaPatch(SourceLocation CommentLoc);
 
   enum PragmaSectionKind {
     PSK_DataSeg,

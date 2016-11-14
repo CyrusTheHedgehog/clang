@@ -4061,8 +4061,8 @@ PragmaDetectMismatchDecl::CreateDeserialized(ASTContext &C, unsigned ID,
 
 PragmaPatchDecl *
 PragmaPatchDecl::Create(const ASTContext &C, TranslationUnitDecl *DC,
-                        SourceLocation Loc, std::string &&New, std::string &&Old) {
-  return new (C, DC) PragmaPatchDecl(DC, Loc, std::move(New), std::move(Old));
+                        SourceLocation Loc) {
+  return new (C, DC) PragmaPatchDecl(DC, Loc);
 }
 
 PragmaPatchDecl *

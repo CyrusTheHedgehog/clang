@@ -80,8 +80,6 @@ public:
   ///   code generator will schedule the entity for emission if a
   ///   definition has been registered with this code generator.
   llvm::Constant *GetAddrOfGlobal(GlobalDecl decl, bool isForDefinition);
-
-  CodeGenerator *getAsCodeGenerator() override { return this; }
 };
 
 /// CreateLLVMCodeGen - Create a CodeGenerator instance.

@@ -5819,7 +5819,7 @@ static bool shouldConsiderLinkage(const VarDecl *VD) {
 static bool shouldConsiderLinkage(const FunctionDecl *FD) {
   const DeclContext *DC = FD->getDeclContext()->getRedeclContext();
   if (DC->isFileContext() || DC->isFunctionOrMethod() ||
-      isa<OMPDeclareReductionDecl>(DC))
+      isa<OMPDeclareReductionDecl>(DC) || isa<PragmaPatchDecl>(DC))
     return true;
   if (DC->isRecord())
     return false;

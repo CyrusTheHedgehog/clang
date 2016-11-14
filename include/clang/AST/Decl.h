@@ -171,31 +171,22 @@ public:
   static bool classofKind(Kind K) { return K == PragmaDetectMismatch; }
 };
 
-class PragmaPatchDecl final : public Decl {
-  std::string New;
-  std::string Old;
-
+class PragmaPatchDecl final : public Decl, public DeclContext {
   PragmaPatchDecl(TranslationUnitDecl *TU, SourceLocation Loc)
-      : Decl(PragmaPatch, TU, Loc) {}
-
-  PragmaPatchDecl(TranslationUnitDecl *TU, SourceLocation Loc,
-                  std::string&& New, std::string&& Old)
-      : Decl(PragmaPatch, TU, Loc), New(std::move(New)), Old(std::move(Old)) {}
+      : Decl(PragmaPatch, TU, Loc), DeclContext(PragmaPatch) {}
 
 public:
   static PragmaPatchDecl *Create(const ASTContext &C,
                                  TranslationUnitDecl *DC,
-                                 SourceLocation Loc,
-                                 std::string&& New,
-                                 std::string&& Old);
+                                 SourceLocation Loc);
   static PragmaPatchDecl *CreateDeserialized(ASTContext &C, unsigned ID);
 
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
   static bool classofKind(Kind K) { return K == PragmaPatch; }
 
-  StringRef getNew() const { return New; }
-  StringRef getOld() const { return Old; }
+  Decl *getNew() const { return *decls_begin(); }
+  Decl *getOld() const { return *(++decls_begin()); }
 };
 
 /// \brief Declaration context for names declared as extern "C" in C++. This

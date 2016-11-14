@@ -344,14 +344,12 @@ void ASTDeclWriter::VisitPragmaDetectMismatchDecl(
 }
 
 void ASTDeclWriter::VisitPragmaPatchDecl(PragmaPatchDecl *D) {
-  StringRef New = D->getNew();
-  StringRef Old = D->getOld();
-  Record.push_back(New.size());
-  Record.push_back(Old.size());
+  //Decl *New = D->getNew();
+  //Decl *Old = D->getOld();
   VisitDecl(D);
   Record.AddSourceLocation(D->getLocStart());
-  Record.AddString(New);
-  Record.AddString(Old);
+  //Record.AddDeclRef(New);
+  //Record.AddDeclRef(Old);
   Code = serialization::DECL_PRAGMA_PATCH;
 }
 
