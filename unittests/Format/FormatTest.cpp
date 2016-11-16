@@ -276,6 +276,30 @@ TEST_F(FormatTest, RemovesEmptyLines) {
                    "int i;\n"
                    "\n"
                    "}  // namespace"));
+
+  FormatStyle Style = getLLVMStyle();
+  Style.AllowShortFunctionsOnASingleLine = FormatStyle::SFS_All;
+  Style.MaxEmptyLinesToKeep = 2;
+  Style.BreakBeforeBraces = FormatStyle::BS_Custom;
+  Style.BraceWrapping.AfterClass = true;
+  Style.BraceWrapping.AfterFunction = true;
+  Style.KeepEmptyLinesAtTheStartOfBlocks = false;
+
+  EXPECT_EQ("class Foo\n"
+            "{\n"
+            "  Foo() {}\n"
+            "\n"
+            "  void funk() {}\n"
+            "};",
+            format("class Foo\n"
+                   "{\n"
+                   "  Foo()\n"
+                   "  {\n"
+                   "  }\n"
+                   "\n"
+                   "  void funk() {}\n"
+                   "};",
+                   Style));
 }
 
 TEST_F(FormatTest, RecognizesBinaryOperatorKeywords) {
@@ -7555,6 +7579,20 @@ TEST_F(FormatTest, FormatObjCMethodDeclarations) {
                "       aShortf:(NSRect)theRect {\n"
                "}",
                continuationStyle);
+
+  // Format pairs correctly.
+  verifyFormat("- (void)drawRectOn:(id)surface\n"
+               "            ofSize:(aaaaaaaa)height\n"
+               "                  :(size_t)width\n"
+               "          atOrigin:(size_t)x\n"
+               "                  :(size_t)y\n"
+               "             aaaaa:(a)yyy\n"
+               "               bbb:(d)cccc;");
+  verifyFormat("- (void)drawRectOn:(id)surface ofSize:(aaa)height:(bbb)width;");
+  verifyFormat("- (void)drawRectOn:(id)surface\n"
+               "            ofSize:(size_t)height\n"
+               "                  :(size_t)width;",
+               getLLVMStyleWithColumns(60));
 }
 
 TEST_F(FormatTest, FormatObjCMethodExpr) {
@@ -7757,6 +7795,12 @@ TEST_F(FormatTest, FormatObjCMethodExpr) {
                "    aaa:aaa];");
   verifyFormat("bool a = ([aaaaaaaa aaaaa] == aaaaaaaaaaaaaaaaa ||\n"
                "          [aaaaaaaa aaaaa] == aaaaaaaaaaaaaaaaaaaa);");
+
+  // Formats pair-parameters.
+  verifyFormat("[I drawRectOn:surface ofSize:aa:bbb atOrigin:cc:dd];");
+  verifyFormat("[I drawRectOn:surface //\n"
+               "        ofSize:aa:bbb\n"
+               "      atOrigin:cc:dd];");
 }
 
 TEST_F(FormatTest, ObjCAt) {

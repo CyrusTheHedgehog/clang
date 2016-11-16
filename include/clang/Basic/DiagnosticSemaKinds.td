@@ -1780,6 +1780,8 @@ def note_uninit_fixit_remove_cond : Note<
   "remove the %select{'%1' if its condition|condition if it}0 "
   "is always %select{false|true}2">;
 def err_init_incomplete_type : Error<"initialization of incomplete type %0">;
+def err_list_init_in_parens : Error<"list-initializer for non-class type %0 "
+  "must not be parenthesized">;
 
 def warn_unsequenced_mod_mod : Warning<
   "multiple unsequenced modifications to %0">, InGroup<Unsequenced>;
@@ -2599,6 +2601,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "functions"
   "|unions"
   "|variables and functions"
+  "|functions and global variables"
   "|functions, variables, and Objective-C interfaces"
   "|functions and methods"
   "|parameters"
@@ -2629,7 +2632,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "|functions, variables, classes, and Objective-C interfaces"
   "|Objective-C protocols"
   "|variables with static or thread storage duration"
-  "|functions and global variables"
+  "|functions, methods, properties, and global variables"
   "|structs, unions, and typedefs"
   "|structs and typedefs"
   "|interface or protocol declarations"
@@ -8160,7 +8163,7 @@ def err_opencl_enqueue_kernel_expected_type : Error<
 def err_opencl_enqueue_kernel_local_size_args : Error<
   "mismatch in number of block parameters and local size arguments passed">;
 def err_opencl_enqueue_kernel_invalid_local_size_type : Error<
-  "local memory sizes need to be specified as uint">;
+  "illegal call to enqueue_kernel, parameter needs to be specified as integer type">;
 def err_opencl_enqueue_kernel_blocks_non_local_void_args : Error<
   "blocks used in device side enqueue are expected to have parameters of type 'local void*'">;
 def err_opencl_enqueue_kernel_blocks_no_args : Error<
