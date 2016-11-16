@@ -168,7 +168,8 @@ bool CodeWarriorMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
     // Variables at global scope with non-internal linkage are not mangled
     const DeclContext *DC = getEffectiveDeclContext(D);
     // Check for extern variable declared locally.
-    if (DC->isFunctionOrMethod() && D->hasLinkage())
+    if ((DC->isFunctionOrMethod() && D->hasLinkage()) ||
+        isa<PragmaPatchDecl>(DC))
       while (!DC->isNamespace() && !DC->isTranslationUnit())
         DC = getEffectiveParentContext(DC);
     if (DC->isTranslationUnit() && D->getFormalLinkage() != InternalLinkage &&
@@ -217,6 +218,17 @@ static void MangleClassTemplateSpecialization(const Decl *Decl,
   }
 }
 
+static void PrintNamedDecl(const NamedDecl *ND, const ASTContext &Ctx,
+                           raw_ostream &Out) {
+  std::string Str;
+  llvm::raw_string_ostream Name(Str);
+  Name << ND->getName();
+  MangleClassTemplateSpecialization(ND, Ctx, Name);
+  auto &NameStr = Name.str();
+  Out << NameStr.size();
+  Out << NameStr;
+}
+
 static void RecursiveDenest(const DeclContext *DCtx,
                             unsigned Count,
                             const ASTContext &Ctx,
@@ -230,31 +242,27 @@ static void RecursiveDenest(const DeclContext *DCtx,
   else if (Count > 1)
     Out << 'Q' << Count;
 
-  Out << Named->getName().size();
-  Out << Named->getName();
-  MangleClassTemplateSpecialization(Named, Ctx, Out);
+  PrintNamedDecl(Named, Ctx, Out);
 }
 
 static bool PrintType(QualType T, const ASTContext &Ctx,
                       raw_ostream &Out) {
   if (const ReferenceType *Ref = T.getTypePtr()->getAs<ReferenceType>()) {
+    Out << 'R';
     if (Ref->getPointeeType().isConstant(Ctx))
       Out << 'C';
-    Out << 'R';
     return PrintType(Ref->getPointeeType(), Ctx, Out);
 
   } else if (const PointerType *Ptr = T.getTypePtr()->getAs<PointerType>()) {
+    Out << 'P';
     if (Ptr->getPointeeType().isConstant(Ctx))
       Out << 'C';
-    Out << 'P';
     return PrintType(Ptr->getPointeeType(), Ctx, Out);
 
   } else if (const TagType *Tag = T.getTypePtr()->getAs<TagType>()) {
     const TagDecl *TD = Tag->getDecl();
     RecursiveDenest(getEffectiveDeclContext(TD), 2, Ctx, Out);
-    Out << TD->getName().size();
-    Out << TD->getName();
-    MangleClassTemplateSpecialization(TD, Ctx, Out);
+    PrintNamedDecl(TD, Ctx, Out);
     return true;
 
   } else if (const BuiltinType *Builtin = T.getTypePtr()->getAs<BuiltinType>()) {
@@ -381,7 +389,6 @@ void CodeWarriorMangleContextImpl::mangleCXXName(const NamedDecl *D,
                     getASTContext(), Out);
 
   }
-
 }
 
 void CodeWarriorMangleContextImpl::mangleCXXCtor(const CXXConstructorDecl *D,

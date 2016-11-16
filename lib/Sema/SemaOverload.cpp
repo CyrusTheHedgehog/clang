@@ -8921,6 +8921,18 @@ OverloadCandidateSet::BestViableFunction(Sema &S, SourceLocation Loc,
     }
   }
 
+  // Hanafuda patch declarations should be ignored entirely
+  if (S.getLangOpts().HanafudaExt) {
+    auto IsPragmaPatch = [&](OverloadCandidate *Cand) {
+      Decl *Parent =
+          dyn_cast_or_null<Decl>(Cand->Function->getLexicalParent());
+      return Parent && isa<PragmaPatchDecl>(Parent);
+    };
+    Candidates.erase(std::remove_if(Candidates.begin(), Candidates.end(),
+                                    IsPragmaPatch),
+                     Candidates.end());
+  }
+
   // Find the best viable function.
   Best = end();
   for (auto *Cand : Candidates)

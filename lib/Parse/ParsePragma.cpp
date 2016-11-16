@@ -455,14 +455,24 @@ void Parser::HandlePragmaUnused() {
 void Parser::HandlePragmaPatchDol() {
   assert(Tok.is(tok::annot_pragma_patch_dol));
   SourceLocation UnusedLoc = ConsumeToken();
-  auto *PPD = Actions.ActOnPragmaPatch(UnusedLoc);
+  PragmaPatchDecl *PPD = Actions.ActOnPragmaPatch(UnusedLoc);
   Sema::ContextRAII SavedContext(Actions, PPD);
+  ParsedAttributesWithRange attrs(AttrFactory);
   ParsingDeclSpec DS(*this);
+  EnterScope(Scope::DeclScope|Scope::BlockScope);
+  getCurScope()->setEntity(PPD);
   for (int i=0; i<2; ++i) {
-    ParsingDeclarator D(*this, DS, Declarator::FileContext);
-    ParseDeclarator(D);
-    Actions.ActOnDeclarator(getCurScope(), D);
+    //ParsingDeclarator D(*this, DS, Declarator::ForContext);
+    //ParseDeclarator(D);
+    SourceLocation DeclEnd;
+    //ParseDeclGroup(DS, Declarator::ForContext, &DeclEnd);
+    DeclGroupPtrTy DG = ParseDeclGroup(DS, Declarator::ForContext, &DeclEnd);
+    Decl *TheDecl = DG.get().getSingleDecl();
+    TheDecl->setAccess(AS_public);
+    //PPD->addDecl(TheDecl);
+    //Actions.ActOnDeclarator(getCurScope(), D);
   }
+  ExitScope();
   Actions.Consumer.HandleTopLevelDecl(DeclGroupRef(PPD));
 }
 

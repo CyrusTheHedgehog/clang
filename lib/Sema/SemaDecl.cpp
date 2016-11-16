@@ -4889,7 +4889,8 @@ bool Sema::diagnoseQualifiedDeclaration(CXXScopeSpec &SS, DeclContext *DC,
                                         DeclarationName Name,
                                         SourceLocation Loc) {
   DeclContext *Cur = CurContext;
-  while (isa<LinkageSpecDecl>(Cur) || isa<CapturedDecl>(Cur))
+  while (isa<LinkageSpecDecl>(Cur) || isa<CapturedDecl>(Cur) ||
+         isa<PragmaPatchDecl>(Cur))
     Cur = Cur->getParent();
 
   // If the user provided a superfluous scope specifier that refers back to the
@@ -5807,7 +5808,8 @@ static bool isIncompleteDeclExternC(Sema &S, const T *D) {
 
 static bool shouldConsiderLinkage(const VarDecl *VD) {
   const DeclContext *DC = VD->getDeclContext()->getRedeclContext();
-  if (DC->isFunctionOrMethod() || isa<OMPDeclareReductionDecl>(DC))
+  if (DC->isFunctionOrMethod() || isa<OMPDeclareReductionDecl>(DC) ||
+      isa<PragmaPatchDecl>(DC))
     return VD->hasExternalStorage();
   if (DC->isFileContext())
     return true;
@@ -8520,7 +8522,8 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                                   : TPC_FunctionTemplate);
     }
 
-    if (NewFD->isInvalidDecl()) {
+    if (NewFD->isInvalidDecl() ||
+        isa<PragmaPatchDecl>(S->getEntity())) {
       // Ignore all the rest of this.
     } else if (!D.isRedeclaration()) {
       struct ActOnFDArgs ExtraArgs = { S, D, TemplateParamLists,
@@ -8777,6 +8780,9 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
                                     bool IsExplicitSpecialization) {
   assert(!NewFD->getReturnType()->isVariablyModifiedType() &&
          "Variably modified return types are not handled here");
+
+  if (S && isa<PragmaPatchDecl>(S->getEntity()))
+    return false;
 
   // Determine whether the type of this function should be merged with
   // a previous visible declaration. This never happens for functions in C++,
