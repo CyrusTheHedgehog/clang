@@ -1150,7 +1150,7 @@ bool Sema::CheckCXXThisCapture(SourceLocation Loc, const bool Explicit,
 
   // In the loop below, respect the ByCopy flag only for the closure requesting
   // the capture (i.e. first iteration through the loop below).  Ignore it for
-  // all enclosing closure's upto NumCapturingClosures (since they must be
+  // all enclosing closure's up to NumCapturingClosures (since they must be
   // implicitly capturing the *enclosing  object* by reference (see loop
   // above)).
   assert((!ByCopy ||
@@ -1220,6 +1220,17 @@ Sema::ActOnCXXTypeConstructExpr(ParsedType TypeRep,
   QualType Ty = GetTypeFromParser(TypeRep, &TInfo);
   if (!TInfo)
     TInfo = Context.getTrivialTypeSourceInfo(Ty, SourceLocation());
+
+  // Handle errors like: int({0})
+  if (exprs.size() == 1 && !canInitializeWithParenthesizedList(Ty) &&
+      LParenLoc.isValid() && RParenLoc.isValid())
+    if (auto IList = dyn_cast<InitListExpr>(exprs[0])) {
+      Diag(TInfo->getTypeLoc().getLocStart(), diag::err_list_init_in_parens)
+          << Ty << IList->getSourceRange()
+          << FixItHint::CreateRemoval(LParenLoc)
+          << FixItHint::CreateRemoval(RParenLoc);
+      LParenLoc = RParenLoc = SourceLocation();
+    }
 
   auto Result = BuildCXXTypeConstructExpr(TInfo, LParenLoc, exprs, RParenLoc);
   // Avoid creating a non-type-dependent expression that contains typos.
@@ -1562,8 +1573,20 @@ Sema::ActOnCXXNew(SourceLocation StartLoc, bool UseGlobal,
     return ExprError();
 
   SourceRange DirectInitRange;
-  if (ParenListExpr *List = dyn_cast_or_null<ParenListExpr>(Initializer))
+  if (ParenListExpr *List = dyn_cast_or_null<ParenListExpr>(Initializer)) {
     DirectInitRange = List->getSourceRange();
+    // Handle errors like: new int a({0})
+    if (List->getNumExprs() == 1 &&
+        !canInitializeWithParenthesizedList(AllocType))
+      if (auto IList = dyn_cast<InitListExpr>(List->getExpr(0))) {
+        Diag(TInfo->getTypeLoc().getLocStart(), diag::err_list_init_in_parens)
+            << AllocType << List->getSourceRange()
+            << FixItHint::CreateRemoval(List->getLocStart())
+            << FixItHint::CreateRemoval(List->getLocEnd());
+        DirectInitRange = SourceRange();
+        Initializer = IList;
+      }
+  }
 
   return BuildCXXNew(SourceRange(StartLoc, D.getLocEnd()), UseGlobal,
                      PlacementLParen,
@@ -6879,8 +6902,14 @@ static void CheckIfAnyEnclosingLambdasMustCaptureAnyPotentialCaptures(
 
   assert(!S.isUnevaluatedContext());
   assert(S.CurContext->isDependentContext());
-  assert(CurrentLSI->CallOperator == S.CurContext &&
+#ifndef NDEBUG
+  DeclContext *DC = S.CurContext;
+  while (DC && isa<CapturedDecl>(DC))
+    DC = DC->getParent();
+  assert(
+      CurrentLSI->CallOperator == DC &&
       "The current call operator must be synchronized with Sema's CurContext");
+#endif // NDEBUG
 
   const bool IsFullExprInstantiationDependent = FE->isInstantiationDependent();
 
@@ -7346,7 +7375,8 @@ ExprResult Sema::ActOnFinishFullExpr(Expr *FE, SourceLocation CC,
   // and then the full-expression +n + ({ 0; }); ends, but it's too late
   // for us to see that we need to capture n after all.
 
-  LambdaScopeInfo *const CurrentLSI = getCurLambda();
+  LambdaScopeInfo *const CurrentLSI =
+      getCurLambda(/*IgnoreCapturedRegions=*/true);
   // FIXME: PR 17877 showed that getCurLambda() can return a valid pointer
   // even if CurContext is not a lambda call operator. Refer to that Bug Report
   // for an example of the code that might cause this asynchrony.
@@ -7361,7 +7391,10 @@ ExprResult Sema::ActOnFinishFullExpr(Expr *FE, SourceLocation CC,
   //     constructor/destructor.
   //  - Teach the handful of places that iterate over FunctionScopes to
   //    stop at the outermost enclosing lexical scope."
-  const bool IsInLambdaDeclContext = isLambdaCallOperator(CurContext);
+  DeclContext *DC = CurContext;
+  while (DC && isa<CapturedDecl>(DC))
+    DC = DC->getParent();
+  const bool IsInLambdaDeclContext = isLambdaCallOperator(DC);
   if (IsInLambdaDeclContext && CurrentLSI &&
       CurrentLSI->hasPotentialCaptures() && !FullExpr.isInvalid())
     CheckIfAnyEnclosingLambdasMustCaptureAnyPotentialCaptures(FE, CurrentLSI,

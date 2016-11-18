@@ -262,10 +262,6 @@ ProgramStateRef ExprEngine::processAssume(ProgramStateRef state,
   return getCheckerManager().runCheckersForEvalAssume(state, cond, assumption);
 }
 
-bool ExprEngine::wantsRegionChangeUpdate(ProgramStateRef state) {
-  return getCheckerManager().wantsRegionChangeUpdate(state);
-}
-
 ProgramStateRef
 ExprEngine::processRegionChanges(ProgramStateRef state,
                                  const InvalidatedSymbols *invalidated,
@@ -1836,7 +1832,7 @@ void ExprEngine::processSwitch(SwitchNodeBuilder& builder) {
     ProgramStateRef StateCase;
     if (Optional<NonLoc> NL = CondV.getAs<NonLoc>())
       std::tie(StateCase, DefaultSt) =
-          DefaultSt->assumeWithinInclusiveRange(*NL, V1, V2);
+          DefaultSt->assumeInclusiveRange(*NL, V1, V2);
     else // UnknownVal
       StateCase = DefaultSt;
 

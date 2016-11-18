@@ -1228,8 +1228,10 @@ public:
   /// \brief Retrieve the current block, if any.
   sema::BlockScopeInfo *getCurBlock();
 
-  /// \brief Retrieve the current lambda scope info, if any.
-  sema::LambdaScopeInfo *getCurLambda();
+  /// Retrieve the current lambda scope info, if any.
+  /// \param IgnoreCapturedRegions true if should find the top-most lambda scope
+  /// info ignoring all inner captured regions scope infos.
+  sema::LambdaScopeInfo *getCurLambda(bool IgnoreCapturedRegions = false);
 
   /// \brief Retrieve the current generic lambda info, if any.
   sema::LambdaScopeInfo *getCurGenericLambda();
@@ -1794,6 +1796,8 @@ public:
                             bool TypeMayContainAuto);
   void ActOnUninitializedDecl(Decl *dcl, bool TypeMayContainAuto);
   void ActOnInitializerError(Decl *Dcl);
+  bool canInitializeWithParenthesizedList(QualType TargetType);
+
   void ActOnPureSpecifier(Decl *D, SourceLocation PureSpecLoc);
   void ActOnCXXForRangeDecl(Decl *D);
   StmtResult ActOnCXXForRangeIdentifier(Scope *S, SourceLocation IdentLoc,
@@ -9998,7 +10002,7 @@ public:
   /// local diagnostics like in reference binding.
   void RefersToMemberWithReducedAlignment(
       Expr *E,
-      std::function<void(Expr *, RecordDecl *, ValueDecl *, CharUnits)> Action);
+      std::function<void(Expr *, RecordDecl *, FieldDecl *, CharUnits)> Action);
 };
 
 /// \brief RAII object that enters a new expression evaluation context.
