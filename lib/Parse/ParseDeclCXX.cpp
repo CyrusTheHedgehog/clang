@@ -215,6 +215,12 @@ void Parser::ParseInnerNamespace(std::vector<SourceLocation> &IdentLoc,
   if (index == Ident.size()) {
     while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
            Tok.isNot(tok::eof)) {
+      if (Tok.is(tok::annot_pragma_patch_dol)) {
+        Diag(Tok, diag::err_patch_dol_namespace);
+        HandlePragmaPatchDol(false);
+        continue;
+      }
+
       ParsedAttributesWithRange attrs(AttrFactory);
       MaybeParseCXX11Attributes(attrs);
       ParseExternalDeclaration(attrs);

@@ -3945,16 +3945,9 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
 
   case Decl::PragmaPatch: {
     const auto *PPD = cast<PragmaPatchDecl>(D);
-    if (const FunctionDecl *FDOld = dyn_cast<FunctionDecl>(PPD->getOld())) {
+    if (const FunctionDecl *FDOld = dyn_cast<FunctionDecl>(PPD->getOld()))
       if (const FunctionDecl *FDNew = dyn_cast<FunctionDecl>(PPD->getNew()))
         AddHanafudaPatch(getMangledName(FDOld), getMangledName(FDNew));
-      break;
-    }
-    if (const VarDecl *VDOld = dyn_cast<VarDecl>(PPD->getOld())) {
-      if (const VarDecl *VDNew = dyn_cast<VarDecl>(PPD->getNew()))
-        AddHanafudaPatch(getMangledName(VDOld), getMangledName(VDNew));
-      break;
-    }
     break;
   }
 

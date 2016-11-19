@@ -373,6 +373,7 @@ void CodeWarriorMangleContextImpl::mangleCXXName(const NamedDecl *D,
                                  "Mangling declaration");
 
   if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(D)) {
+    MD = MD->getCanonicalDecl();
     if (isa<CXXConstructorDecl>(D))
       Out << "__ct";
     else if (isa<CXXDestructorDecl>(D))
@@ -398,6 +399,7 @@ void CodeWarriorMangleContextImpl::mangleCXXName(const NamedDecl *D,
         PrintType(Param->getType(), getASTContext(), Out);
 
   } else if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+    FD = FD->getCanonicalDecl();
     FD->getNameInfo().printName(Out);
     if (const TemplateArgumentList *TArgs = FD->getTemplateSpecializationArgs())
       MangleTemplateSpecialization(*TArgs, getASTContext(), Out);
@@ -416,6 +418,7 @@ void CodeWarriorMangleContextImpl::mangleCXXName(const NamedDecl *D,
         PrintType(Param->getType(), getASTContext(), Out);
 
   } else if (const VarDecl *VD = dyn_cast<VarDecl>(D)) {
+    VD = VD->getCanonicalDecl();
     Out << VD->getName();
     Out << "__";
     RecursiveDenest(getEffectiveDeclContext(VD), 1,
