@@ -172,12 +172,14 @@ public:
 };
 
 class PragmaPatchDecl final : public Decl, public DeclContext {
-  PragmaPatchDecl(TranslationUnitDecl *TU, SourceLocation Loc)
-      : Decl(PragmaPatch, TU, Loc), DeclContext(PragmaPatch) {}
+  PragmaPatchDecl(DeclContext *DC, SourceLocation Loc)
+      : Decl(PragmaPatch, DC, Loc), DeclContext(PragmaPatch) {}
+
+  static Decl *StripLinkageSpec(Decl *In);
 
 public:
   static PragmaPatchDecl *Create(const ASTContext &C,
-                                 TranslationUnitDecl *DC,
+                                 DeclContext *DC,
                                  SourceLocation Loc);
   static PragmaPatchDecl *CreateDeserialized(ASTContext &C, unsigned ID);
 
@@ -185,8 +187,8 @@ public:
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
   static bool classofKind(Kind K) { return K == PragmaPatch; }
 
-  Decl *getNew() const { return *decls_begin(); }
-  Decl *getOld() const { return *(++decls_begin()); }
+  Decl *getNew() const { return StripLinkageSpec(*decls_begin()); }
+  Decl *getOld() const { return StripLinkageSpec(*(++decls_begin())); }
 };
 
 /// \brief Declaration context for names declared as extern "C" in C++. This

@@ -333,6 +333,10 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, unsigned Context) {
   unsigned NestedModules = 0;
   while (true) {
     switch (Tok.getKind()) {
+    case tok::annot_pragma_patch_dol:
+      HandlePragmaPatchDol();
+      continue;
+
     case tok::annot_module_begin:
       ++NestedModules;
       ParseTopLevelDecl();

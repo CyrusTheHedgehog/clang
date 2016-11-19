@@ -190,8 +190,8 @@ struct PragmaPatchDolHandler : public PragmaHandler {
     PP.Lex(Tok);
 
     if (Tok.isNot(tok::l_paren)) {
-      PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_lparen)
-          << "patch_dol";
+      PP.Diag(Tok.getLocation(), diag::err_expected)
+          << "'('";
       return;
     }
     PP.Lex(Tok);
@@ -228,17 +228,22 @@ struct PragmaPatchDolHandler : public PragmaHandler {
       }
       if (i == 0) {
         if (Tok.isNot(tok::comma)) {
-          PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_comma)
-              << "patch_dol";
+          PP.Diag(Tok.getLocation(), diag::err_expected)
+              << "comma";
           return;
         }
         PP.Lex(Tok);
       }
+      Token SemiTok;
+      SemiTok.startToken();
+      SemiTok.setLocation(Tok.getLocation());
+      SemiTok.setKind(tok::semi);
+      BuildToks.push_back(SemiTok);
     }
 
     if (Tok.isNot(tok::r_paren)) {
-      PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_rparen)
-          << "patch_dol";
+      PP.Diag(Tok.getLocation(), diag::err_expected)
+          << "')'";
       return;
     }
     PP.Lex(Tok);
@@ -457,20 +462,19 @@ void Parser::HandlePragmaPatchDol() {
   SourceLocation UnusedLoc = ConsumeToken();
   PragmaPatchDecl *PPD = Actions.ActOnPragmaPatch(UnusedLoc);
   Sema::ContextRAII SavedContext(Actions, PPD);
-  ParsedAttributesWithRange attrs(AttrFactory);
-  ParsingDeclSpec DS(*this);
-  EnterScope(Scope::DeclScope|Scope::BlockScope);
+  EnterScope(Scope::DeclScope);
   getCurScope()->setEntity(PPD);
   for (int i=0; i<2; ++i) {
-    //ParsingDeclarator D(*this, DS, Declarator::ForContext);
-    //ParseDeclarator(D);
-    SourceLocation DeclEnd;
-    //ParseDeclGroup(DS, Declarator::ForContext, &DeclEnd);
-    DeclGroupPtrTy DG = ParseDeclGroup(DS, Declarator::ForContext, &DeclEnd);
+    SourceLocation TokenLoc = Tok.getLocation();
+    ParsedAttributesWithRange attrs(AttrFactory);
+    ParsingDeclSpec DS(*this);
+    DeclGroupPtrTy DG = ParseExternalDeclaration(attrs, &DS);
+    if (!DG) {
+      PP.Diag(TokenLoc, diag::err_expected) << "function or variable declaration";
+      break;
+    }
     Decl *TheDecl = DG.get().getSingleDecl();
     TheDecl->setAccess(AS_public);
-    //PPD->addDecl(TheDecl);
-    //Actions.ActOnDeclarator(getCurScope(), D);
   }
   ExitScope();
   Actions.Consumer.HandleTopLevelDecl(DeclGroupRef(PPD));

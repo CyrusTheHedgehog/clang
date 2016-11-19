@@ -8429,8 +8429,12 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                                                        Previous))
         NewFD->setInvalidDecl();
     } else if (isFunctionTemplateSpecialization) {
-      if (CurContext->isDependentContext() && CurContext->isRecord()
-          && !isFriend) {
+      if (CurContext->getDeclKind() == Decl::PragmaPatch)
+        NewFD->setDependentTemplateSpecialization(getASTContext(),
+                                                  Previous.asUnresolvedSet(),
+                                                  TemplateArgs);
+      else if (CurContext->isDependentContext() && CurContext->isRecord()
+               && !isFriend) {
         isDependentClassScopeExplicitSpecialization = true;
         Diag(NewFD->getLocation(), getLangOpts().MicrosoftExt ?
           diag::ext_function_specialization_in_class :

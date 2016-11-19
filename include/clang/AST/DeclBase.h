@@ -1309,6 +1309,10 @@ public:
 
   bool isInlineNamespace() const;
 
+  /// \brief Test if this context or an ancestor is a PragmaPatch
+  /// declatation
+  bool isPragmaPatch() const;
+
   /// \brief Determines whether this context is dependent on a
   /// template parameter.
   bool isDependentContext() const;

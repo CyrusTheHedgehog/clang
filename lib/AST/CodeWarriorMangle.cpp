@@ -136,6 +136,11 @@ public:
 bool CodeWarriorMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
   const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
   if (FD) {
+    // Pragma patch function declarations as extern "C" aren't mangled
+    if (FD->getDeclContext()->isPragmaPatch() &&
+        FD->getDeclContext()->isExternCContext())
+      return false;
+
     LanguageLinkage L = FD->getLanguageLinkage();
     // Overloadable functions need mangling.
     if (FD->hasAttr<OverloadableAttr>())
@@ -161,6 +166,11 @@ bool CodeWarriorMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
 
   const VarDecl *VD = dyn_cast<VarDecl>(D);
   if (VD && !isa<DecompositionDecl>(D)) {
+    // Pragma patch variable declarations as extern "C" aren't mangled
+    if (VD->getDeclContext()->isPragmaPatch() &&
+        VD->getDeclContext()->isExternCContext())
+      return false;
+
     // C variables are not mangled.
     if (VD->isExternC())
       return false;
@@ -189,6 +199,33 @@ static void MangleTemplateSpecialization(const TemplateArgumentList &List,
   Out << '<';
   bool NeedsComma = false;
   for (const TemplateArgument& Arg : List.asArray()) {
+    switch (Arg.getKind()) {
+    case TemplateArgument::Type:
+      if (NeedsComma)
+        Out << ',';
+      PrintType(Arg.getAsType(), Ctx, Out);
+      NeedsComma = true;
+      break;
+    case TemplateArgument::Integral:
+      if (NeedsComma)
+        Out << ',';
+      Arg.getAsIntegral().print(Out, true);
+      NeedsComma = true;
+      break;
+    default: break;
+    }
+  }
+  Out << '>';
+}
+
+static void MangleTemplateSpecialization(
+    const DependentFunctionTemplateSpecializationInfo &List,
+    const ASTContext &Ctx, raw_ostream &Out) {
+  Out << '<';
+  bool NeedsComma = false;
+  const TemplateArgumentLoc *Args = List.getTemplateArgs();
+  for (unsigned i = 0; i < List.getNumTemplateArgs(); ++i) {
+    const TemplateArgument &Arg = Args[i].getArgument();
     switch (Arg.getKind()) {
     case TemplateArgument::Type:
       if (NeedsComma)
@@ -350,9 +387,11 @@ void CodeWarriorMangleContextImpl::mangleCXXName(const NamedDecl *D,
       Out << "__dt";
     else
       MD->getNameInfo().printName(Out);
-    const TemplateArgumentList *TArgs = MD->getTemplateSpecializationArgs();
-    if (TArgs)
+    if (const TemplateArgumentList *TArgs = MD->getTemplateSpecializationArgs())
       MangleTemplateSpecialization(*TArgs, getASTContext(), Out);
+    else if (DependentFunctionTemplateSpecializationInfo *DepArgs =
+             MD->getDependentSpecializationInfo())
+      MangleTemplateSpecialization(*DepArgs, getASTContext(), Out);
     Out << "__";
     RecursiveDenest(getEffectiveDeclContext(MD), 1,
                     getASTContext(), Out);
@@ -368,9 +407,11 @@ void CodeWarriorMangleContextImpl::mangleCXXName(const NamedDecl *D,
 
   } else if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
     FD->getNameInfo().printName(Out);
-    const TemplateArgumentList *TArgs = FD->getTemplateSpecializationArgs();
-    if (TArgs)
+    if (const TemplateArgumentList *TArgs = FD->getTemplateSpecializationArgs())
       MangleTemplateSpecialization(*TArgs, getASTContext(), Out);
+    else if (DependentFunctionTemplateSpecializationInfo *DepArgs =
+             FD->getDependentSpecializationInfo())
+      MangleTemplateSpecialization(*DepArgs, getASTContext(), Out);
     Out << "__";
     RecursiveDenest(getEffectiveDeclContext(FD), 1,
                     getASTContext(), Out);

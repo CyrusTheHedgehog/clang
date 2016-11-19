@@ -4059,8 +4059,14 @@ PragmaDetectMismatchDecl::CreateDeserialized(ASTContext &C, unsigned ID,
       PragmaDetectMismatchDecl(nullptr, SourceLocation(), 0);
 }
 
+Decl *PragmaPatchDecl::StripLinkageSpec(Decl *In) {
+  if (LinkageSpecDecl *LSD = dyn_cast<LinkageSpecDecl>(In))
+    return *LSD->decls_begin();
+  return In;
+}
+
 PragmaPatchDecl *
-PragmaPatchDecl::Create(const ASTContext &C, TranslationUnitDecl *DC,
+PragmaPatchDecl::Create(const ASTContext &C, DeclContext *DC,
                         SourceLocation Loc) {
   return new (C, DC) PragmaPatchDecl(DC, Loc);
 }

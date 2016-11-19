@@ -934,6 +934,15 @@ bool DeclContext::isInlineNamespace() const {
          cast<NamespaceDecl>(this)->isInline();
 }
 
+bool DeclContext::isPragmaPatch() const {
+  if (getDeclKind() != Decl::TranslationUnit) {
+    if (getDeclKind() == Decl::PragmaPatch)
+      return true;
+    return getLexicalParent()->isPragmaPatch();
+  }
+  return false;
+}
+
 bool DeclContext::isStdNamespace() const {
   if (!isNamespace())
     return false;

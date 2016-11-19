@@ -209,9 +209,8 @@ void Sema::ActOnPragmaMSVtorDisp(PragmaMsStackAction Action,
 }
 
 PragmaPatchDecl *Sema::ActOnPragmaPatch(SourceLocation CommentLoc) {
-  auto *PPD = PragmaPatchDecl::Create(
-      Context, Context.getTranslationUnitDecl(), CommentLoc);
-  Context.getTranslationUnitDecl()->addDecl(PPD);
+  auto *PPD = PragmaPatchDecl::Create(Context, CurContext, CommentLoc);
+  CurContext->addDecl(PPD);
   return PPD;
 }
 
