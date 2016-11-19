@@ -500,6 +500,9 @@ private:
   /// \param DoHandle - Perform MDTuple emit immediately.
   void HandlePragmaPatchDol(bool DoHandle);
 
+  /// \brief Skip tokens of pragma patch without emitting AST nodes
+  void SkipPragmaPatchDol();
+
   /// \brief Handle the annotation token produced for
   /// #pragma GCC visibility...
   void HandlePragmaVisibility();

@@ -217,7 +217,7 @@ void Parser::ParseInnerNamespace(std::vector<SourceLocation> &IdentLoc,
            Tok.isNot(tok::eof)) {
       if (Tok.is(tok::annot_pragma_patch_dol)) {
         Diag(Tok, diag::err_patch_dol_namespace);
-        HandlePragmaPatchDol(false);
+        SkipPragmaPatchDol();
         continue;
       }
 
@@ -2992,6 +2992,12 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
   if (Tok.is(tok::annot_pragma_openmp))
     return ParseOpenMPDeclarativeDirectiveWithExtDecl(AS, AccessAttrs, TagType,
                                                       TagDecl);
+
+  if (Tok.is(tok::annot_pragma_patch_dol)) {
+    Diag(Tok, diag::err_patch_dol_namespace);
+    SkipPragmaPatchDol();
+    return nullptr;
+  }
 
   // Parse all the comma separated declarators.
   return ParseCXXClassMemberDeclaration(AS, AccessAttrs.getList());

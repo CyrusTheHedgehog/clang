@@ -487,6 +487,14 @@ void Parser::HandlePragmaPatchDol(bool DoHandle) {
     Actions.Consumer.HandleTopLevelDecl(DeclGroupRef(PPD));
 }
 
+/// \brief Skip tokens of pragma patch without emitting AST nodes
+void Parser::SkipPragmaPatchDol() {
+  assert(Tok.is(tok::annot_pragma_patch_dol));
+  ConsumeToken();
+  for (int i = 0; i < 2; ++i)
+    SkipUntil(tok::semi);
+}
+
 void Parser::HandlePragmaVisibility() {
   assert(Tok.is(tok::annot_pragma_vis));
   const IdentifierInfo *VisType =

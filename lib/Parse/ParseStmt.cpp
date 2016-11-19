@@ -982,6 +982,12 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       continue;
     }
 
+    if (Tok.is(tok::annot_pragma_patch_dol)) {
+      Diag(Tok, diag::err_patch_dol_namespace);
+      SkipPragmaPatchDol();
+      continue;
+    }
+
     StmtResult R;
     if (Tok.isNot(tok::kw___extension__)) {
       R = ParseStatementOrDeclaration(Stmts, ACK_Any);
