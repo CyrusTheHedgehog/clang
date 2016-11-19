@@ -701,7 +701,7 @@ ANNOTATION(decltype)     // annotation for a decltype expression,
 // one 'pragma_unused' annotation token followed by the argument token.
 ANNOTATION(pragma_unused)
 
-// Annotation for #pragma patch_dol(...)
+// Annotation for #pragma patch_dol(old, new)
 ANNOTATION(pragma_patch_dol)
 
 // Annotation for #pragma GCC visibility...

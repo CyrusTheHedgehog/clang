@@ -1168,12 +1168,12 @@ void CodeGenModule::AddDependentLib(StringRef Lib) {
   LinkerOptionsMetadata.push_back(llvm::MDNode::get(getLLVMContext(), MDOpts));
 }
 
-void CodeGenModule::AddHanafudaPatch(StringRef New, StringRef Old) {
+void CodeGenModule::AddHanafudaPatch(StringRef Old, StringRef New) {
   llvm::ArrayRef<llvm::Metadata *> TupleArr =
       {llvm::MDNode::get(getLLVMContext(),
-         llvm::MDString::get(getLLVMContext(), New)),
+       llvm::MDString::get(getLLVMContext(), Old)),
        llvm::MDNode::get(getLLVMContext(),
-         llvm::MDString::get(getLLVMContext(), Old))};
+       llvm::MDString::get(getLLVMContext(), New))};
   auto *MDOpts = llvm::MDTuple::get(getLLVMContext(), TupleArr);
   HanafudaPatchMetadata.push_back(MDOpts);
 }
@@ -3945,27 +3945,14 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
 
   case Decl::PragmaPatch: {
     const auto *PPD = cast<PragmaPatchDecl>(D);
-    const FunctionDecl *FDNew = dyn_cast<FunctionDecl>(PPD->getNew());
-    if (FDNew) {
-      Decl *Old = PPD->getOld();
-      const FunctionDecl *FDOld = dyn_cast<FunctionDecl>(Old);
-      const VarDecl *VDOld = dyn_cast<VarDecl>(Old);
-      StringRef OldName = FDOld ? getMangledName(FDOld) :
-                          VDOld ? getMangledName(VDOld) : StringRef();
-      if (OldName.size())
-        AddHanafudaPatch(getMangledName(FDNew), OldName);
+    if (const FunctionDecl *FDOld = dyn_cast<FunctionDecl>(PPD->getOld())) {
+      if (const FunctionDecl *FDNew = dyn_cast<FunctionDecl>(PPD->getNew()))
+        AddHanafudaPatch(getMangledName(FDOld), getMangledName(FDNew));
       break;
     }
-
-    const VarDecl *VDNew = dyn_cast<VarDecl>(PPD->getNew());
-    if (VDNew) {
-      Decl *Old = PPD->getOld();
-      const VarDecl *VDOld = dyn_cast<VarDecl>(Old);
-      const FunctionDecl *FDOld = dyn_cast<FunctionDecl>(Old);
-      StringRef OldName = VDOld ? getMangledName(VDOld) :
-                          FDOld ? getMangledName(FDOld) : StringRef();
-      if (OldName.size())
-        AddHanafudaPatch(getMangledName(VDNew), OldName);
+    if (const VarDecl *VDOld = dyn_cast<VarDecl>(PPD->getOld())) {
+      if (const VarDecl *VDNew = dyn_cast<VarDecl>(PPD->getNew()))
+        AddHanafudaPatch(getMangledName(VDOld), getMangledName(VDNew));
       break;
     }
     break;

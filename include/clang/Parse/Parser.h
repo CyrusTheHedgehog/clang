@@ -492,7 +492,12 @@ private:
   /// \brief Handle the annotation token produced for #pragma unused(...)
   void HandlePragmaUnused();
 
-  /// \brief Handle the annotation token produced for #pragma patch_dol(...)
+  /// \brief Handle the annotation token produced for #pragma unused(old, new)
+  ///
+  /// This dispatches two separate DeclSpec iterations. If both contain
+  /// FunctionDecls or VarDecls, a hanafuda patch is emitted as an MDTuple.
+  ///
+  /// \param DoHandle - Perform MDTuple emit immediately.
   void HandlePragmaPatchDol(bool DoHandle);
 
   /// \brief Handle the annotation token produced for

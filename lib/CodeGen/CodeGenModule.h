@@ -1017,7 +1017,7 @@ public:
   void AddDependentLib(StringRef Lib);
 
   /// \brief Appends a hanafuda patch directive metadata tuple
-  void AddHanafudaPatch(StringRef New, StringRef Old);
+  void AddHanafudaPatch(StringRef Old, StringRef New);
 
   llvm::GlobalVariable::LinkageTypes getFunctionLinkage(GlobalDecl GD);
 

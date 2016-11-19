@@ -193,28 +193,34 @@ bool CodeWarriorMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
 static bool PrintType(QualType T, const ASTContext &Ctx,
                       raw_ostream &Out);
 
+static void MangleTemplateSpecializationArg(const TemplateArgument &Arg,
+                                            bool &NeedsComma,
+                                            const ASTContext &Ctx,
+                                            raw_ostream &Out) {
+  switch (Arg.getKind()) {
+  case TemplateArgument::Type:
+    if (NeedsComma)
+      Out << ',';
+    PrintType(Arg.getAsType(), Ctx, Out);
+    NeedsComma = true;
+    break;
+  case TemplateArgument::Integral:
+    if (NeedsComma)
+      Out << ',';
+    Arg.getAsIntegral().print(Out, true);
+    NeedsComma = true;
+    break;
+  default: break;
+  }
+}
+
 static void MangleTemplateSpecialization(const TemplateArgumentList &List,
                                          const ASTContext &Ctx,
                                          raw_ostream &Out) {
   Out << '<';
   bool NeedsComma = false;
-  for (const TemplateArgument& Arg : List.asArray()) {
-    switch (Arg.getKind()) {
-    case TemplateArgument::Type:
-      if (NeedsComma)
-        Out << ',';
-      PrintType(Arg.getAsType(), Ctx, Out);
-      NeedsComma = true;
-      break;
-    case TemplateArgument::Integral:
-      if (NeedsComma)
-        Out << ',';
-      Arg.getAsIntegral().print(Out, true);
-      NeedsComma = true;
-      break;
-    default: break;
-    }
-  }
+  for (const TemplateArgument &Arg : List.asArray())
+    MangleTemplateSpecializationArg(Arg, NeedsComma, Ctx, Out);
   Out << '>';
 }
 
@@ -226,21 +232,7 @@ static void MangleTemplateSpecialization(
   const TemplateArgumentLoc *Args = List.getTemplateArgs();
   for (unsigned i = 0; i < List.getNumTemplateArgs(); ++i) {
     const TemplateArgument &Arg = Args[i].getArgument();
-    switch (Arg.getKind()) {
-    case TemplateArgument::Type:
-      if (NeedsComma)
-        Out << ',';
-      PrintType(Arg.getAsType(), Ctx, Out);
-      NeedsComma = true;
-      break;
-    case TemplateArgument::Integral:
-      if (NeedsComma)
-        Out << ',';
-      Arg.getAsIntegral().print(Out, true);
-      NeedsComma = true;
-      break;
-    default: break;
-    }
+    MangleTemplateSpecializationArg(Arg, NeedsComma, Ctx, Out);
   }
   Out << '>';
 }

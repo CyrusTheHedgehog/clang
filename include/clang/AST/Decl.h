@@ -187,8 +187,8 @@ public:
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
   static bool classofKind(Kind K) { return K == PragmaPatch; }
 
-  Decl *getNew() const { return StripLinkageSpec(*decls_begin()); }
-  Decl *getOld() const { return StripLinkageSpec(*(++decls_begin())); }
+  Decl *getOld() const { return StripLinkageSpec(*(decls_begin())); }
+  Decl *getNew() const { return StripLinkageSpec(*(++decls_begin())); }
 };
 
 /// \brief Declaration context for names declared as extern "C" in C++. This

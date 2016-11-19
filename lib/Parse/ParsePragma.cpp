@@ -457,6 +457,12 @@ void Parser::HandlePragmaUnused() {
   ConsumeToken(); // The argument token.
 }
 
+/// \brief Handle the annotation token produced for #pragma unused(old, new)
+///
+/// This dispatches two separate DeclSpec iterations. If both contain
+/// FunctionDecls or VarDecls, a hanafuda patch is emitted as an MDTuple.
+///
+/// \param DoHandle - Perform MDTuple emit immediately.
 void Parser::HandlePragmaPatchDol(bool DoHandle) {
   assert(Tok.is(tok::annot_pragma_patch_dol));
   SourceLocation UnusedLoc = ConsumeToken();
@@ -464,7 +470,7 @@ void Parser::HandlePragmaPatchDol(bool DoHandle) {
   Sema::ContextRAII SavedContext(Actions, PPD);
   EnterScope(Scope::DeclScope);
   getCurScope()->setEntity(PPD);
-  for (int i=0; i<2; ++i) {
+  for (int i = 0; i < 2; ++i) {
     SourceLocation TokenLoc = Tok.getLocation();
     ParsedAttributesWithRange attrs(AttrFactory);
     ParsingDeclSpec DS(*this);

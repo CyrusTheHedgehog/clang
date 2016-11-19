@@ -7884,7 +7884,7 @@ public:
                              MSVtorDispAttr::Mode Value);
 
 
-  /// ActOnPragmaPatch - Called on well formed #pragma patch_dol
+  /// ActOnPragmaPatch - Called on well formed #pragma patch_dol(old, new)
   PragmaPatchDecl *ActOnPragmaPatch(SourceLocation CommentLoc);
 
   enum PragmaSectionKind {
