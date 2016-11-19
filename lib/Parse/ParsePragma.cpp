@@ -457,7 +457,7 @@ void Parser::HandlePragmaUnused() {
   ConsumeToken(); // The argument token.
 }
 
-void Parser::HandlePragmaPatchDol() {
+void Parser::HandlePragmaPatchDol(bool DoHandle) {
   assert(Tok.is(tok::annot_pragma_patch_dol));
   SourceLocation UnusedLoc = ConsumeToken();
   PragmaPatchDecl *PPD = Actions.ActOnPragmaPatch(UnusedLoc);
@@ -477,7 +477,8 @@ void Parser::HandlePragmaPatchDol() {
     TheDecl->setAccess(AS_public);
   }
   ExitScope();
-  Actions.Consumer.HandleTopLevelDecl(DeclGroupRef(PPD));
+  if (DoHandle)
+    Actions.Consumer.HandleTopLevelDecl(DeclGroupRef(PPD));
 }
 
 void Parser::HandlePragmaVisibility() {

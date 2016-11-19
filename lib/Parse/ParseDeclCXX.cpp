@@ -334,7 +334,7 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, unsigned Context) {
   while (true) {
     switch (Tok.getKind()) {
     case tok::annot_pragma_patch_dol:
-      HandlePragmaPatchDol();
+      HandlePragmaPatchDol(false);
       continue;
 
     case tok::annot_module_begin:

@@ -580,7 +580,7 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result) {
   Result = nullptr;
   switch (Tok.getKind()) {
   case tok::annot_pragma_patch_dol:
-    HandlePragmaPatchDol();
+    HandlePragmaPatchDol(true);
     return false;
 
   case tok::annot_pragma_unused:
