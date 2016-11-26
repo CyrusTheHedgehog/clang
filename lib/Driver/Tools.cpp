@@ -3379,6 +3379,9 @@ static bool useFramePointerForTargetByDefault(const ArgList &Args,
     // XCore never wants frame pointers, regardless of OS.
     // WebAssembly never wants frame pointers.
     return false;
+  case llvm::Triple::ppc:
+    if (Triple.getOS() == llvm::Triple::Hanafuda)
+      return false;
   default:
     break;
   }
