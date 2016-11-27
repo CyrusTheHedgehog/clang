@@ -112,10 +112,10 @@ public:
     /// Only scattered and incomplete official documentation exists.
     Microsoft,
 
-    /// The CodeWarrior PowerPC EABI
+    /// The Macintosh PowerPC C++ ABI
     ///
     /// It is implemented here as part of Hanafuda
-    CodeWarriorPowerPC
+    MacintoshPowerPC
   };
 
 private:
@@ -147,9 +147,9 @@ public:
     case WatchOS:
     case GenericMIPS:
     case WebAssembly:
-    case CodeWarriorPowerPC:
       return true;
 
+    case MacintoshPowerPC:
     case Microsoft:
       return false;
     }
@@ -167,13 +167,33 @@ public:
     case WatchOS:
     case GenericMIPS:
     case WebAssembly:
-    case CodeWarriorPowerPC:
+    case MacintoshPowerPC:
       return false;
 
     case Microsoft:
       return true;
     }
     llvm_unreachable("bad ABI kind");
+  }
+
+  /// \brief Is this ABI an MPW-compatible ABI?
+  bool isMacintosh() const {
+  switch (getKind()) {
+    case GenericAArch64:
+    case GenericItanium:
+    case GenericARM:
+    case iOS:
+    case iOS64:
+    case WatchOS:
+    case GenericMIPS:
+    case WebAssembly:
+    case Microsoft:
+      return false;
+
+    case MacintoshPowerPC:
+      return true;
+  }
+  llvm_unreachable("bad ABI kind");
   }
 
   /// \brief Are member functions differently aligned?
@@ -201,7 +221,7 @@ public:
     case iOS64:
     case WatchOS:
     case Microsoft:
-    case CodeWarriorPowerPC:
+    case MacintoshPowerPC:
       return true;
     }
     llvm_unreachable("bad ABI kind");
@@ -284,7 +304,7 @@ public:
     case iOS:   // old iOS compilers did not follow this rule
     case Microsoft:
     case GenericMIPS:
-    case CodeWarriorPowerPC:
+    case MacintoshPowerPC:
       return true;
     }
     llvm_unreachable("bad ABI kind");
@@ -331,7 +351,7 @@ public:
     case GenericARM:
     case iOS:
     case GenericMIPS:
-    case CodeWarriorPowerPC:
+    case MacintoshPowerPC:
       return UseTailPaddingUnlessPOD03;
 
     // iOS on ARM64 and WebAssembly use the C++11 POD rules.  They do not honor

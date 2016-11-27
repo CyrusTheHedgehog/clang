@@ -44,7 +44,7 @@ public:
   enum ManglerKind {
     MK_Itanium,
     MK_Microsoft,
-    MK_CodeWarrior
+    MK_Macintosh
   };
 
 private:
@@ -247,10 +247,10 @@ public:
                                         DiagnosticsEngine &Diags);
 };
 
-class CodeWarriorMangleContext : public ItaniumMangleContext {
+class MacintoshMangleContext : public ItaniumMangleContext {
 public:
-  explicit CodeWarriorMangleContext(ASTContext &C, DiagnosticsEngine &D)
-      : ItaniumMangleContext(C, D, MK_CodeWarrior) {}
+  explicit MacintoshMangleContext(ASTContext &C, DiagnosticsEngine &D)
+      : ItaniumMangleContext(C, D, MK_Macintosh) {}
 
   virtual void mangleCXXVTable(const CXXRecordDecl *RD, raw_ostream &) = 0;
   virtual void mangleCXXVTT(const CXXRecordDecl *RD, raw_ostream &) = 0;
@@ -268,10 +268,10 @@ public:
                                    raw_ostream &) = 0;
 
   static bool classof(const MangleContext *C) {
-    return C->getKind() == MK_CodeWarrior;
+    return C->getKind() == MK_Macintosh;
   }
 
-  static CodeWarriorMangleContext *create(ASTContext &Context,
+  static MacintoshMangleContext *create(ASTContext &Context,
                                           DiagnosticsEngine &Diags);
 };
 }

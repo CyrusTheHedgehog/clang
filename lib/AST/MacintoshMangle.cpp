@@ -1,4 +1,4 @@
-//===--- CodeWarriorMangle.cpp - Itanium C++ Name Mangling ------*- C++ -*-===//
+//===--- MacintoshMangle.cpp - Macintosh C++ Name Mangling ------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -73,11 +73,11 @@ static const DeclContext *getEffectiveParentContext(const DeclContext *DC) {
   return getEffectiveDeclContext(cast<Decl>(DC));
 }
 
-class CodeWarriorMangleContextImpl : public CodeWarriorMangleContext {
+class MacintoshMangleContextImpl : public MacintoshMangleContext {
 public:
-  explicit CodeWarriorMangleContextImpl(ASTContext &Context,
+  explicit MacintoshMangleContextImpl(ASTContext &Context,
                                         DiagnosticsEngine &Diags)
-      : CodeWarriorMangleContext(Context, Diags) {}
+      : MacintoshMangleContext(Context, Diags) {}
 
   /// @name Mangler Entry Points
   /// @{
@@ -133,7 +133,7 @@ public:
 
 }
 
-bool CodeWarriorMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
+bool MacintoshMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
   const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
   if (FD) {
     // Pragma patch function declarations as extern "C" aren't mangled
@@ -353,6 +353,37 @@ static bool PrintType(QualType T, const ASTContext &Ctx,
   return false;
 }
 
+static void MangleNumber(int64_t Number, raw_ostream &Out) {
+  //  <number> ::= [n] <non-negative decimal integer>
+  if (Number < 0) {
+    Out << 'n';
+    Number = -Number;
+  }
+
+  Out << Number;
+}
+
+static void MangleCallOffset(int64_t NonVirtual, int64_t Virtual,
+                             raw_ostream &Out) {
+  //  <call-offset>  ::= h <nv-offset> _
+  //                 ::= v <v-offset> _
+  //  <nv-offset>    ::= <offset number>        # non-virtual base override
+  //  <v-offset>     ::= <offset number> _ <virtual offset number>
+  //                      # virtual base override, with vcall offset
+  if (!Virtual) {
+    Out << 'h';
+    MangleNumber(NonVirtual, Out);
+    Out << '_';
+    return;
+  }
+
+  Out << 'v';
+  MangleNumber(NonVirtual, Out);
+  Out << '_';
+  MangleNumber(Virtual, Out);
+  Out << '_';
+}
+
 /// Mangles the name of the declaration D and emits that name to the given
 /// output stream.
 ///
@@ -361,12 +392,10 @@ static bool PrintType(QualType T, const ASTContext &Ctx,
 /// and this routine will return false. In this case, the caller should just
 /// emit the identifier of the declaration (\c D->getIdentifier()) as its
 /// name.
-void CodeWarriorMangleContextImpl::mangleCXXName(const NamedDecl *D,
+void MacintoshMangleContextImpl::mangleCXXName(const NamedDecl *D,
                                                  raw_ostream &Out) {
   assert((isa<FunctionDecl>(D) || isa<VarDecl>(D)) &&
           "Invalid mangleName() call, argument is not a variable or function!");
-  assert(!isa<CXXConstructorDecl>(D) && !isa<CXXDestructorDecl>(D) &&
-         "Invalid mangleName() call on 'structor decl!");
 
   PrettyStackTraceDecl CrashInfo(D, SourceLocation(),
                                  getASTContext().getSourceManager(),
@@ -427,34 +456,68 @@ void CodeWarriorMangleContextImpl::mangleCXXName(const NamedDecl *D,
   }
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXCtor(const CXXConstructorDecl *D,
+void MacintoshMangleContextImpl::mangleCXXCtor(const CXXConstructorDecl *D,
                                                  CXXCtorType Type,
                                                  raw_ostream &Out) {
-
+  mangleCXXName(D, Out);
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXDtor(const CXXDestructorDecl *D,
+void MacintoshMangleContextImpl::mangleCXXDtor(const CXXDestructorDecl *D,
                                                  CXXDtorType Type,
                                                  raw_ostream &Out) {
-
+  mangleCXXName(D, Out);
 }
 
-void CodeWarriorMangleContextImpl::mangleThunk(const CXXMethodDecl *MD,
+void MacintoshMangleContextImpl::mangleThunk(const CXXMethodDecl *MD,
                                                const ThunkInfo &Thunk,
                                                raw_ostream &Out) {
+  //  <special-name> ::= T <call-offset> <base encoding>
+  //                      # base is the nominal target function of thunk
+  //  <special-name> ::= Tc <call-offset> <call-offset> <base encoding>
+  //                      # base is the nominal target function of thunk
+  //                      # first call-offset is 'this' adjustment
+  //                      # second call-offset is result adjustment
+
+  assert(!isa<CXXDestructorDecl>(MD) &&
+         "Use mangleCXXDtor for destructor decls!");
+  Out << "T";
+
+  // Mangle the 'this' pointer adjustment.
+  MangleCallOffset(Thunk.This.NonVirtual,
+                   Thunk.This.Virtual.Itanium.VCallOffsetOffset,
+                   Out);
+
+  // Mangle the return pointer adjustment if there is one.
+  if (!Thunk.Return.isEmpty())
+    MangleCallOffset(Thunk.Return.NonVirtual,
+                     Thunk.Return.Virtual.Itanium.VBaseOffsetOffset,
+                     Out);
+
+  mangleCXXName(MD, Out);
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXDtorThunk(
+void MacintoshMangleContextImpl::mangleCXXDtorThunk(
     const CXXDestructorDecl *DD, CXXDtorType Type,
     const ThisAdjustment &ThisAdjustment, raw_ostream &Out) {
+  //  <special-name> ::= T <call-offset> <base encoding>
+  //                      # base is the nominal target function of thunk
+  Out << "T";
+
+  // Mangle the 'this' pointer adjustment.
+  MangleCallOffset(ThisAdjustment.NonVirtual,
+                   ThisAdjustment.Virtual.Itanium.VCallOffsetOffset,
+                   Out);
+
+  mangleCXXName(DD, Out);
 }
 
 /// Returns the mangled name for a guard variable for the passed in VarDecl.
-void CodeWarriorMangleContextImpl::mangleStaticGuardVariable(const VarDecl *D,
+void MacintoshMangleContextImpl::mangleStaticGuardVariable(const VarDecl *D,
                                                          raw_ostream &Out) {
+  llvm_unreachable("Can't mangle string literals");
 }
 
-void CodeWarriorMangleContextImpl::mangleDynamicInitializer(const VarDecl *MD,
+void MacintoshMangleContextImpl::mangleDynamicInitializer(const VarDecl *MD,
                                                             raw_ostream &Out) {
   // These symbols are internal in the Itanium ABI, so the names don't matter.
   // Clang has traditionally used this symbol and allowed LLVM to adjust it to
@@ -462,7 +525,7 @@ void CodeWarriorMangleContextImpl::mangleDynamicInitializer(const VarDecl *MD,
   Out << "__cxx_global_var_init";
 }
 
-void CodeWarriorMangleContextImpl::mangleDynamicAtExitDestructor(const VarDecl *D,
+void MacintoshMangleContextImpl::mangleDynamicAtExitDestructor(const VarDecl *D,
                                                                  raw_ostream &Out) {
   // Prefix the mangling of D with __dtor_.
   Out << "__dtor_";
@@ -471,7 +534,7 @@ void CodeWarriorMangleContextImpl::mangleDynamicAtExitDestructor(const VarDecl *
     Out << D->getName();
 }
 
-void CodeWarriorMangleContextImpl::mangleSEHFilterExpression(
+void MacintoshMangleContextImpl::mangleSEHFilterExpression(
     const NamedDecl *EnclosingDecl, raw_ostream &Out) {
   Out << "__filt_";
   if (shouldMangleDeclName(EnclosingDecl)) {
@@ -479,7 +542,7 @@ void CodeWarriorMangleContextImpl::mangleSEHFilterExpression(
     Out << EnclosingDecl->getName();
 }
 
-void CodeWarriorMangleContextImpl::mangleSEHFinallyBlock(
+void MacintoshMangleContextImpl::mangleSEHFinallyBlock(
     const NamedDecl *EnclosingDecl, raw_ostream &Out) {
   Out << "__fin_";
   if (shouldMangleDeclName(EnclosingDecl)) {
@@ -487,71 +550,73 @@ void CodeWarriorMangleContextImpl::mangleSEHFinallyBlock(
     Out << EnclosingDecl->getName();
 }
 
-void CodeWarriorMangleContextImpl::mangleReferenceTemporary(const VarDecl *D,
+void MacintoshMangleContextImpl::mangleReferenceTemporary(const VarDecl *D,
                                                             unsigned ManglingNumber,
                                                             raw_ostream &Out) {
+  llvm_unreachable("Can't mangle string literals");
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXRTTI(QualType Ty, raw_ostream &Out) {
+void MacintoshMangleContextImpl::mangleCXXRTTI(QualType Ty, raw_ostream &Out) {
   // <special-name> ::= TI <type>  # typeinfo structure
   assert(!Ty.hasQualifiers() && "RTTI info cannot have top-level qualifiers");
   Out << "_ZTI";
   PrintType(Ty, getASTContext(), Out);
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXRTTIName(QualType Ty,
+void MacintoshMangleContextImpl::mangleCXXRTTIName(QualType Ty,
                                                      raw_ostream &Out) {
   // <special-name> ::= TS <type>  # typeinfo name (null terminated byte string)
   Out << "_ZTS";
   PrintType(Ty, getASTContext(), Out);
 }
 
-void CodeWarriorMangleContextImpl::mangleTypeName(QualType Ty, raw_ostream &Out) {
+void MacintoshMangleContextImpl::mangleTypeName(QualType Ty, raw_ostream &Out) {
   mangleCXXRTTIName(Ty, Out);
 }
 
-void CodeWarriorMangleContextImpl::mangleStringLiteral(
+void MacintoshMangleContextImpl::mangleStringLiteral(
     const StringLiteral *, raw_ostream &) {
   llvm_unreachable("Can't mangle string literals");
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXVTable(
-    const CXXRecordDecl *RD, raw_ostream &) {
-
+void MacintoshMangleContextImpl::mangleCXXVTable(
+    const CXXRecordDecl *RD, raw_ostream &Out) {
+  Out << "__vt__";
+  RecursiveDenest(RD, 1, getASTContext(), Out);
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXVTT(
+void MacintoshMangleContextImpl::mangleCXXVTT(
     const CXXRecordDecl *RD, raw_ostream &) {
-
+  llvm_unreachable("Can't mangle string literals");
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXCtorVTable(
+void MacintoshMangleContextImpl::mangleCXXCtorVTable(
     const CXXRecordDecl *RD, int64_t Offset,
     const CXXRecordDecl *Type, raw_ostream &) {
-
+  llvm_unreachable("Can't mangle string literals");
 }
 
-void CodeWarriorMangleContextImpl::mangleItaniumThreadLocalInit(
+void MacintoshMangleContextImpl::mangleItaniumThreadLocalInit(
     const VarDecl *D, raw_ostream &) {
-
+  llvm_unreachable("Can't mangle string literals");
 }
 
-void CodeWarriorMangleContextImpl::mangleItaniumThreadLocalWrapper(
+void MacintoshMangleContextImpl::mangleItaniumThreadLocalWrapper(
     const VarDecl *D, raw_ostream &) {
-
+  llvm_unreachable("Can't mangle string literals");
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXCtorComdat(
+void MacintoshMangleContextImpl::mangleCXXCtorComdat(
     const CXXConstructorDecl *D, raw_ostream &) {
-
+  llvm_unreachable("Can't mangle string literals");
 }
 
-void CodeWarriorMangleContextImpl::mangleCXXDtorComdat(
+void MacintoshMangleContextImpl::mangleCXXDtorComdat(
     const CXXDestructorDecl *D, raw_ostream &) {
-
+  llvm_unreachable("Can't mangle string literals");
 }
 
-CodeWarriorMangleContext *
-CodeWarriorMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {
-  return new CodeWarriorMangleContextImpl(Context, Diags);
+MacintoshMangleContext *
+MacintoshMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {
+  return new MacintoshMangleContextImpl(Context, Diags);
 }

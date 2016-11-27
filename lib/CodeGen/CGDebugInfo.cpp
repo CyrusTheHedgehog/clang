@@ -1285,6 +1285,8 @@ llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
       // since a single destructor has two entries in the vtable.
       if (!isa<CXXDestructorDecl>(Method))
         VIndex = CGM.getItaniumVTableContext().getMethodVTableIndex(Method);
+    } else if (CGM.getTarget().getCXXABI().isMacintosh()) {
+      VIndex = CGM.getItaniumVTableContext().getMethodVTableIndex(Method);
     } else {
       // Emit MS ABI vftable information.  There is only one entry for the
       // deleting dtor.
@@ -1411,7 +1413,8 @@ void CGDebugInfo::CollectCXXBasesAux(
     uint64_t BaseOffset;
 
     if (BI.isVirtual()) {
-      if (CGM.getTarget().getCXXABI().isItaniumFamily()) {
+      if (CGM.getTarget().getCXXABI().isItaniumFamily() ||
+          CGM.getTarget().getCXXABI().isMacintosh()) {
         // virtual base offset offset is -ve. The code generator emits dwarf
         // expression where it expects +ve number.
         BaseOffset = 0 - CGM.getItaniumVTableContext()

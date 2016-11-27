@@ -1657,7 +1657,7 @@ public:
     } else if (getTriple().getOS() == llvm::Triple::Hanafuda) {
       LongDoubleWidth = LongDoubleAlign = 64;
       LongDoubleFormat = &llvm::APFloat::IEEEdouble;
-      TheCXXABI.set(TargetCXXABI::CodeWarriorPowerPC);
+      TheCXXABI.set(TargetCXXABI::MacintoshPowerPC);
     }
 
     // PPC32 supports atomics up to 4 bytes.

@@ -48,7 +48,7 @@ protected:
   bool Use32BitVTableOffsetABI;
   bool UseQualifiedFunctionTypeInfoABI;
 
-  ItaniumMangleContext &getMangleContext() {
+  virtual ItaniumMangleContext &getMangleContext() {
     return cast<ItaniumMangleContext>(CodeGen::CGCXXABI::getMangleContext());
   }
 
@@ -451,6 +451,24 @@ private:
   }
   bool canCallMismatchedFunctionType() const override { return false; }
 };
+
+class MacintoshCXXABI final : public ItaniumCXXABI {
+public:
+  explicit MacintoshCXXABI(CodeGen::CodeGenModule &CGM)
+      : ItaniumCXXABI(CGM, /*UseARMMethodPtrABI=*/false,
+                      /*UseARMGuardVarABI=*/false) {}
+
+  void emitCXXStructor(const CXXMethodDecl *MD,
+                       StructorType Type) override {
+    llvm::Function *Fn = CGM.codegenCXXStructor(MD, StructorType::Complete);
+    CGM.maybeSetTrivialComdat(*MD, *Fn);
+  }
+
+protected:
+  ItaniumMangleContext &getMangleContext() override {
+    return cast<MacintoshMangleContext>(CodeGen::CGCXXABI::getMangleContext());
+  }
+};
 }
 
 CodeGen::CGCXXABI *CodeGen::CreateItaniumCXXABI(CodeGenModule &CGM) {
@@ -479,7 +497,6 @@ CodeGen::CGCXXABI *CodeGen::CreateItaniumCXXABI(CodeGenModule &CGM) {
     return new WebAssemblyCXXABI(CGM);
 
   case TargetCXXABI::GenericItanium:
-  case TargetCXXABI::CodeWarriorPowerPC:
     if (CGM.getContext().getTargetInfo().getTriple().getArch()
         == llvm::Triple::le32) {
       // For PNaCl, use ARM-style method pointers so that PNaCl code
@@ -489,6 +506,9 @@ CodeGen::CGCXXABI *CodeGen::CreateItaniumCXXABI(CodeGenModule &CGM) {
                                /* UseARMGuardVarABI = */ false);
     }
     return new ItaniumCXXABI(CGM);
+
+  case TargetCXXABI::MacintoshPowerPC:
+    return new MacintoshCXXABI(CGM);
 
   case TargetCXXABI::Microsoft:
     llvm_unreachable("Microsoft ABI is not Itanium-based");

@@ -10,7 +10,6 @@ add_clang_library(clangAST
   ASTTypeTraits.cpp
   AttrImpl.cpp
   CXXInheritance.cpp
-  CodeWarriorMangle.cpp
   Comment.cpp
   CommentBriefParser.cpp
   CommentCommandTraits.cpp
@@ -36,6 +35,7 @@ add_clang_library(clangAST
   InheritViz.cpp
   ItaniumCXXABI.cpp
   ItaniumMangle.cpp
+  MacintoshMangle.cpp
   Mangle.cpp
   MicrosoftCXXABI.cpp
   MicrosoftMangle.cpp

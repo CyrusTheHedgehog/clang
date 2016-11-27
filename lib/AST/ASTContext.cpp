@@ -690,7 +690,7 @@ CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
   case TargetCXXABI::GenericMIPS:
   case TargetCXXABI::GenericItanium:
   case TargetCXXABI::WebAssembly:
-  case TargetCXXABI::CodeWarriorPowerPC:
+  case TargetCXXABI::MacintoshPowerPC:
     return CreateItaniumCXXABI(*this);
   case TargetCXXABI::Microsoft:
     return CreateMicrosoftCXXABI(*this);
@@ -9069,8 +9069,8 @@ MangleContext *ASTContext::createMangleContext() {
   case TargetCXXABI::WebAssembly:
   case TargetCXXABI::WatchOS:
     return ItaniumMangleContext::create(*this, getDiagnostics());
-  case TargetCXXABI::CodeWarriorPowerPC:
-    return CodeWarriorMangleContext::create(*this, getDiagnostics());
+  case TargetCXXABI::MacintoshPowerPC:
+    return MacintoshMangleContext::create(*this, getDiagnostics());
   case TargetCXXABI::Microsoft:
     return MicrosoftMangleContext::create(*this, getDiagnostics());
   }
