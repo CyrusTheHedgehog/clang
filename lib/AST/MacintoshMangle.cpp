@@ -76,7 +76,7 @@ static const DeclContext *getEffectiveParentContext(const DeclContext *DC) {
 class MacintoshMangleContextImpl : public MacintoshMangleContext {
 public:
   explicit MacintoshMangleContextImpl(ASTContext &Context,
-                                        DiagnosticsEngine &Diags)
+                                      DiagnosticsEngine &Diags)
       : MacintoshMangleContext(Context, Diags) {}
 
   /// @name Mangler Entry Points
@@ -276,16 +276,15 @@ static void RecursiveDenest(const DeclContext *DCtx,
 
 static bool PrintType(QualType T, const ASTContext &Ctx,
                       raw_ostream &Out) {
+  if (T.isConstant(Ctx))
+    Out << 'C';
+
   if (const ReferenceType *Ref = T.getTypePtr()->getAs<ReferenceType>()) {
     Out << 'R';
-    if (Ref->getPointeeType().isConstant(Ctx))
-      Out << 'C';
     return PrintType(Ref->getPointeeType(), Ctx, Out);
 
   } else if (const PointerType *Ptr = T.getTypePtr()->getAs<PointerType>()) {
     Out << 'P';
-    if (Ptr->getPointeeType().isConstant(Ctx))
-      Out << 'C';
     return PrintType(Ptr->getPointeeType(), Ctx, Out);
 
   } else if (const TagType *Tag = T.getTypePtr()->getAs<TagType>()) {
@@ -293,6 +292,35 @@ static bool PrintType(QualType T, const ASTContext &Ctx,
     RecursiveDenest(getEffectiveDeclContext(TD), 2, Ctx, Out);
     PrintNamedDecl(TD, Ctx, Out);
     return true;
+
+  } else if (const MemberPointerType *MemberPtr = T.getTypePtr()->getAs<MemberPointerType>()) {
+    Out << 'M';
+    const RecordType *Rec = dyn_cast<RecordType>(MemberPtr->getClass());
+    if (Rec)
+      RecursiveDenest(Rec->getDecl(), 1, Ctx, Out);
+    return PrintType(MemberPtr->getPointeeType(), Ctx, Out);
+
+  } else if (const FunctionProtoType *Proto = T.getTypePtr()->getAs<FunctionProtoType>()) {
+    Out << 'F';
+    if (!Proto->getNumParams() && !Proto->isVariadic())
+      Out << 'v';
+    else
+      for (QualType Type : Proto->param_types())
+        PrintType(Type, Ctx, Out);
+
+    if (Proto->isVariadic())
+      Out << 'e';
+
+    Out << '_';
+    PrintType(Proto->getReturnType(), Ctx, Out);
+    return true;
+
+  } else if (const ConstantArrayType *Array =
+             dyn_cast_or_null<ConstantArrayType>(T.getTypePtr()->getAsArrayTypeUnsafe())) {
+    Out << 'A';
+    Array->getSize().print(Out, false);
+    Out << '_';
+    return PrintType(Array->getElementType(), Ctx, Out);
 
   } else if (const BuiltinType *Builtin = T.getTypePtr()->getAs<BuiltinType>()) {
     switch (Builtin->getKind()) {
@@ -302,13 +330,8 @@ static bool PrintType(QualType T, const ASTContext &Ctx,
     case BuiltinType::Bool:
       Out << 'b';
       return true;
-    case BuiltinType::Char_U:
     case BuiltinType::UChar:
       Out << "Uc";
-      return true;
-    case BuiltinType::WChar_U:
-    case BuiltinType::Char16:
-      Out << "Uw";
       return true;
     case BuiltinType::UShort:
       Out << "Us";
@@ -323,10 +346,12 @@ static bool PrintType(QualType T, const ASTContext &Ctx,
       Out << "Uq";
       return true;
     case BuiltinType::Char_S:
+    case BuiltinType::Char_U:
     case BuiltinType::SChar:
       Out << 'c';
       return true;
     case BuiltinType::WChar_S:
+    case BuiltinType::WChar_U:
       Out << 'w';
       return true;
     case BuiltinType::Short:
@@ -339,13 +364,16 @@ static bool PrintType(QualType T, const ASTContext &Ctx,
       Out << 'l';
       return true;
     case BuiltinType::LongLong:
-      Out << 'q';
+      Out << 'x';
       return true;
     case BuiltinType::Float:
       Out << 'f';
       return true;
     case BuiltinType::Double:
       Out << 'd';
+      return true;
+    case BuiltinType::LongDouble:
+      Out << 'r';
       return true;
     default: break;
     }
@@ -421,11 +449,14 @@ void MacintoshMangleContextImpl::mangleCXXName(const NamedDecl *D,
       Out << 'C';
     Out << 'F';
 
-    if (MD->param_empty())
+    if (MD->param_empty() && !MD->isVariadic())
       Out << 'v';
     else
       for (const ParmVarDecl *Param : MD->parameters())
         PrintType(Param->getType(), getASTContext(), Out);
+
+    if (MD->isVariadic())
+      Out << 'e';
 
   } else if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
     FD = FD->getCanonicalDecl();
@@ -440,11 +471,14 @@ void MacintoshMangleContextImpl::mangleCXXName(const NamedDecl *D,
                     getASTContext(), Out);
     Out << 'F';
 
-    if (FD->param_empty())
+    if (FD->param_empty() && !FD->isVariadic())
       Out << 'v';
     else
       for (const ParmVarDecl *Param : FD->parameters())
         PrintType(Param->getType(), getASTContext(), Out);
+
+    if (FD->isVariadic())
+      Out << 'e';
 
   } else if (const VarDecl *VD = dyn_cast<VarDecl>(D)) {
     VD = VD->getCanonicalDecl();
@@ -457,20 +491,20 @@ void MacintoshMangleContextImpl::mangleCXXName(const NamedDecl *D,
 }
 
 void MacintoshMangleContextImpl::mangleCXXCtor(const CXXConstructorDecl *D,
-                                                 CXXCtorType Type,
-                                                 raw_ostream &Out) {
+                                               CXXCtorType Type,
+                                               raw_ostream &Out) {
   mangleCXXName(D, Out);
 }
 
 void MacintoshMangleContextImpl::mangleCXXDtor(const CXXDestructorDecl *D,
-                                                 CXXDtorType Type,
-                                                 raw_ostream &Out) {
+                                               CXXDtorType Type,
+                                               raw_ostream &Out) {
   mangleCXXName(D, Out);
 }
 
 void MacintoshMangleContextImpl::mangleThunk(const CXXMethodDecl *MD,
-                                               const ThunkInfo &Thunk,
-                                               raw_ostream &Out) {
+                                             const ThunkInfo &Thunk,
+                                             raw_ostream &Out) {
   //  <special-name> ::= T <call-offset> <base encoding>
   //                      # base is the nominal target function of thunk
   //  <special-name> ::= Tc <call-offset> <call-offset> <base encoding>
@@ -513,12 +547,12 @@ void MacintoshMangleContextImpl::mangleCXXDtorThunk(
 
 /// Returns the mangled name for a guard variable for the passed in VarDecl.
 void MacintoshMangleContextImpl::mangleStaticGuardVariable(const VarDecl *D,
-                                                         raw_ostream &Out) {
-  llvm_unreachable("Can't mangle string literals");
+                                                           raw_ostream &Out) {
+  llvm_unreachable("Can't mangle StaticGuardVariable");
 }
 
 void MacintoshMangleContextImpl::mangleDynamicInitializer(const VarDecl *MD,
-                                                            raw_ostream &Out) {
+                                                          raw_ostream &Out) {
   // These symbols are internal in the Itanium ABI, so the names don't matter.
   // Clang has traditionally used this symbol and allowed LLVM to adjust it to
   // avoid duplicate symbols.
@@ -526,7 +560,7 @@ void MacintoshMangleContextImpl::mangleDynamicInitializer(const VarDecl *MD,
 }
 
 void MacintoshMangleContextImpl::mangleDynamicAtExitDestructor(const VarDecl *D,
-                                                                 raw_ostream &Out) {
+                                                               raw_ostream &Out) {
   // Prefix the mangling of D with __dtor_.
   Out << "__dtor_";
   if (shouldMangleDeclName(D)) {
@@ -551,9 +585,9 @@ void MacintoshMangleContextImpl::mangleSEHFinallyBlock(
 }
 
 void MacintoshMangleContextImpl::mangleReferenceTemporary(const VarDecl *D,
-                                                            unsigned ManglingNumber,
-                                                            raw_ostream &Out) {
-  llvm_unreachable("Can't mangle string literals");
+                                                          unsigned ManglingNumber,
+                                                          raw_ostream &Out) {
+  llvm_unreachable("Can't mangle ReferenceTemporary");
 }
 
 void MacintoshMangleContextImpl::mangleCXXRTTI(QualType Ty, raw_ostream &Out) {
@@ -564,7 +598,7 @@ void MacintoshMangleContextImpl::mangleCXXRTTI(QualType Ty, raw_ostream &Out) {
 }
 
 void MacintoshMangleContextImpl::mangleCXXRTTIName(QualType Ty,
-                                                     raw_ostream &Out) {
+                                                   raw_ostream &Out) {
   // <special-name> ::= TS <type>  # typeinfo name (null terminated byte string)
   Out << "_ZTS";
   PrintType(Ty, getASTContext(), Out);
@@ -587,33 +621,33 @@ void MacintoshMangleContextImpl::mangleCXXVTable(
 
 void MacintoshMangleContextImpl::mangleCXXVTT(
     const CXXRecordDecl *RD, raw_ostream &) {
-  llvm_unreachable("Can't mangle string literals");
+  llvm_unreachable("Can't mangle CXXVTT");
 }
 
 void MacintoshMangleContextImpl::mangleCXXCtorVTable(
     const CXXRecordDecl *RD, int64_t Offset,
     const CXXRecordDecl *Type, raw_ostream &) {
-  llvm_unreachable("Can't mangle string literals");
+  llvm_unreachable("Can't mangle CtorVTable");
 }
 
 void MacintoshMangleContextImpl::mangleItaniumThreadLocalInit(
     const VarDecl *D, raw_ostream &) {
-  llvm_unreachable("Can't mangle string literals");
+  llvm_unreachable("Can't mangle ItaniumThreadLocalInit");
 }
 
 void MacintoshMangleContextImpl::mangleItaniumThreadLocalWrapper(
     const VarDecl *D, raw_ostream &) {
-  llvm_unreachable("Can't mangle string literals");
+  llvm_unreachable("Can't mangle ItaniumThreadLocalWrapper");
 }
 
 void MacintoshMangleContextImpl::mangleCXXCtorComdat(
     const CXXConstructorDecl *D, raw_ostream &) {
-  llvm_unreachable("Can't mangle string literals");
+  llvm_unreachable("Can't mangle CtorComdat");
 }
 
 void MacintoshMangleContextImpl::mangleCXXDtorComdat(
     const CXXDestructorDecl *D, raw_ostream &) {
-  llvm_unreachable("Can't mangle string literals");
+  llvm_unreachable("Can't mangle DtorComdat");
 }
 
 MacintoshMangleContext *

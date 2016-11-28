@@ -272,7 +272,7 @@ public:
   }
 
   static MacintoshMangleContext *create(ASTContext &Context,
-                                          DiagnosticsEngine &Diags);
+                                        DiagnosticsEngine &Diags);
 };
 }
 
