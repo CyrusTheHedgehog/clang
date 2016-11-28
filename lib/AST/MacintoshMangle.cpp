@@ -276,8 +276,18 @@ static void RecursiveDenest(const DeclContext *DCtx,
 
 static bool PrintType(QualType T, const ASTContext &Ctx,
                       raw_ostream &Out) {
-  if (T.isConstant(Ctx))
+  if (const ConstantArrayType *Array =
+      dyn_cast_or_null<ConstantArrayType>(T.getTypePtr()->getAsArrayTypeUnsafe())) {
+    Out << 'A';
+    Array->getSize().print(Out, false);
+    Out << '_';
+    return PrintType(Array->getElementType(), Ctx, Out);
+  }
+
+  if (T.isConstQualified())
     Out << 'C';
+  if (T.isVolatileQualified())
+    Out << 'V';
 
   if (const ReferenceType *Ref = T.getTypePtr()->getAs<ReferenceType>()) {
     Out << 'R';
@@ -314,13 +324,6 @@ static bool PrintType(QualType T, const ASTContext &Ctx,
     Out << '_';
     PrintType(Proto->getReturnType(), Ctx, Out);
     return true;
-
-  } else if (const ConstantArrayType *Array =
-             dyn_cast_or_null<ConstantArrayType>(T.getTypePtr()->getAsArrayTypeUnsafe())) {
-    Out << 'A';
-    Array->getSize().print(Out, false);
-    Out << '_';
-    return PrintType(Array->getElementType(), Ctx, Out);
 
   } else if (const BuiltinType *Builtin = T.getTypePtr()->getAs<BuiltinType>()) {
     switch (Builtin->getKind()) {
