@@ -5593,7 +5593,7 @@ ASTContext::getObjCEncodingForFunctionDecl(const FunctionDecl *Decl) const {
       continue;
 
     assert (sz.isPositive() &&
-        "getObjCEncodingForFunctionDecl - Incomplete param type");
+            "getObjCEncodingForFunctionDecl - Incomplete param type");
     ParmOffset += sz;
   }
   S += charUnitsToString(ParmOffset);
@@ -5614,13 +5614,8 @@ ASTContext::getObjCEncodingForFunctionDecl(const FunctionDecl *Decl) const {
     S += charUnitsToString(ParmOffset);
     ParmOffset += getObjCEncodingTypeSize(PType);
   }
-<<<<<<< HEAD
-
-  return false;
-=======
   
   return S;
->>>>>>> small-data
 }
 
 /// getObjCEncodingForMethodParameter - Return the encoded type for a single
@@ -5642,14 +5637,8 @@ void ASTContext::getObjCEncodingForMethodParameter(Decl::ObjCDeclQualifier QT,
 
 /// getObjCEncodingForMethodDecl - Return the encoded type for this method
 /// declaration.
-<<<<<<< HEAD
-bool ASTContext::getObjCEncodingForMethodDecl(const ObjCMethodDecl *Decl,
-                                              std::string& S,
-                                              bool Extended) const {
-=======
 std::string ASTContext::getObjCEncodingForMethodDecl(const ObjCMethodDecl *Decl,
                                                      bool Extended) const {
->>>>>>> small-data
   // FIXME: This is not very efficient.
   // Encode return type.
   std::string S;
@@ -5697,13 +5686,8 @@ std::string ASTContext::getObjCEncodingForMethodDecl(const ObjCMethodDecl *Decl,
     S += charUnitsToString(ParmOffset);
     ParmOffset += getObjCEncodingTypeSize(PType);
   }
-<<<<<<< HEAD
-
-  return false;
-=======
   
   return S;
->>>>>>> small-data
 }
 
 ObjCPropertyImplDecl *
