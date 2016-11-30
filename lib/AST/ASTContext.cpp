@@ -4331,7 +4331,7 @@ QualType ASTContext::getDecltypeType(Expr *e, QualType UnderlyingType) const {
     DependentDecltypeType *Canon
       = DependentDecltypeTypes.FindNodeOrInsertPos(ID, InsertPos);
     if (!Canon) {
-      // Build a new, canonical typeof(expr) type.
+      // Build a new, canonical decltype(expr) type.
       Canon = new (*this, TypeAlignment) DependentDecltypeType(*this, e);
       DependentDecltypeTypes.InsertNode(Canon, InsertPos);
     }
@@ -5579,8 +5579,9 @@ std::string ASTContext::getObjCEncodingForBlock(const BlockExpr *Expr) const {
   return S;
 }
 
-bool ASTContext::getObjCEncodingForFunctionDecl(const FunctionDecl *Decl,
-                                                std::string& S) {
+std::string
+ASTContext::getObjCEncodingForFunctionDecl(const FunctionDecl *Decl) const {
+  std::string S;
   // Encode result type.
   getObjCEncodingForType(Decl->getReturnType(), S);
   CharUnits ParmOffset;
@@ -5613,8 +5614,13 @@ bool ASTContext::getObjCEncodingForFunctionDecl(const FunctionDecl *Decl,
     S += charUnitsToString(ParmOffset);
     ParmOffset += getObjCEncodingTypeSize(PType);
   }
+<<<<<<< HEAD
 
   return false;
+=======
+  
+  return S;
+>>>>>>> small-data
 }
 
 /// getObjCEncodingForMethodParameter - Return the encoded type for a single
@@ -5636,11 +5642,17 @@ void ASTContext::getObjCEncodingForMethodParameter(Decl::ObjCDeclQualifier QT,
 
 /// getObjCEncodingForMethodDecl - Return the encoded type for this method
 /// declaration.
+<<<<<<< HEAD
 bool ASTContext::getObjCEncodingForMethodDecl(const ObjCMethodDecl *Decl,
                                               std::string& S,
                                               bool Extended) const {
+=======
+std::string ASTContext::getObjCEncodingForMethodDecl(const ObjCMethodDecl *Decl,
+                                                     bool Extended) const {
+>>>>>>> small-data
   // FIXME: This is not very efficient.
   // Encode return type.
+  std::string S;
   getObjCEncodingForMethodParameter(Decl->getObjCDeclQualifier(),
                                     Decl->getReturnType(), S, Extended);
   // Compute size of all parameters.
@@ -5685,8 +5697,13 @@ bool ASTContext::getObjCEncodingForMethodDecl(const ObjCMethodDecl *Decl,
     S += charUnitsToString(ParmOffset);
     ParmOffset += getObjCEncodingTypeSize(PType);
   }
+<<<<<<< HEAD
 
   return false;
+=======
+  
+  return S;
+>>>>>>> small-data
 }
 
 ObjCPropertyImplDecl *
@@ -5734,9 +5751,9 @@ ASTContext::getObjCPropertyImplDeclForPropertyDecl(
 /// kPropertyNonAtomic = 'N'         // property non-atomic
 /// };
 /// @endcode
-void ASTContext::getObjCEncodingForPropertyDecl(const ObjCPropertyDecl *PD,
-                                                const Decl *Container,
-                                                std::string& S) const {
+std::string
+ASTContext::getObjCEncodingForPropertyDecl(const ObjCPropertyDecl *PD,
+                                           const Decl *Container) const {
   // Collect information from the property implementation decl(s).
   bool Dynamic = false;
   ObjCPropertyImplDecl *SynthesizePID = nullptr;
@@ -5750,7 +5767,7 @@ void ASTContext::getObjCEncodingForPropertyDecl(const ObjCPropertyDecl *PD,
   }
 
   // FIXME: This is not very efficient.
-  S = "T";
+  std::string S = "T";
 
   // Encode result type.
   // GCC has some special rules regarding encoding of properties which
@@ -5799,6 +5816,7 @@ void ASTContext::getObjCEncodingForPropertyDecl(const ObjCPropertyDecl *PD,
   }
 
   // FIXME: OBJCGC: weak & strong
+  return S;
 }
 
 /// getLegacyIntegralTypeEncoding -
@@ -8554,6 +8572,10 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
   case 'z':  // size_t.
     assert(HowLong == 0 && !Signed && !Unsigned && "Bad modifiers for 'z'!");
     Type = Context.getSizeType();
+    break;
+  case 'w':  // wchar_t.
+    assert(HowLong == 0 && !Signed && !Unsigned && "Bad modifiers for 'w'!");
+    Type = Context.getWideCharType();
     break;
   case 'F':
     Type = Context.getCFConstantStringType();
