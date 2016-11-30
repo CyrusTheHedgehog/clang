@@ -788,9 +788,6 @@ public:
   /// \brief will hold 'respondsToSelector:'
   Selector RespondsToSelectorSel;
 
-  /// \brief counter for internal MS Asm label names.
-  unsigned MSAsmLabelNameCounter;
-
   /// A flag to remember whether the implicit forms of operator new and delete
   /// have been declared.
   bool GlobalNewDeleteDeclared;
@@ -1333,11 +1330,7 @@ public:
   bool CheckEquivalentExceptionSpec(
       const PartialDiagnostic &DiagID, const PartialDiagnostic & NoteID,
       const FunctionProtoType *Old, SourceLocation OldLoc,
-      const FunctionProtoType *New, SourceLocation NewLoc,
-      bool *MissingExceptionSpecification = nullptr,
-      bool *MissingEmptyExceptionSpecification = nullptr,
-      bool AllowNoexceptAllMatchWithNoSpec = false,
-      bool IsOperatorNew = false);
+      const FunctionProtoType *New, SourceLocation NewLoc);
   bool CheckExceptionSpecSubset(const PartialDiagnostic &DiagID,
                                 const PartialDiagnostic &NestedDiagID,
                                 const PartialDiagnostic &NoteID,
