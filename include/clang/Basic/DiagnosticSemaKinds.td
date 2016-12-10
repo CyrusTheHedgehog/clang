@@ -53,6 +53,14 @@ def warn_pointer_abs : Warning<
   "taking the absolute value of %select{pointer|function|array}0 type %1 is suspicious">,
   InGroup<AbsoluteValue>;
 
+def warn_max_unsigned_zero : Warning<
+  "taking the max of "
+  "%select{a value and unsigned zero|unsigned zero and a value}0 "
+  "is always equal to the other value">,
+  InGroup<MaxUnsignedZero>;
+def note_remove_max_call : Note<
+  "remove call to max function and unsigned zero argument">;
+
 def warn_infinite_recursive_function : Warning<
   "all paths through this function will call itself">,
   InGroup<InfiniteRecursion>, DefaultIgnore;
@@ -390,8 +398,6 @@ def err_decomp_decl_not_alone : Error<
   "decomposition declaration must be the only declaration in its group">;
 def err_decomp_decl_requires_init : Error<
   "decomposition declaration %0 requires an initializer">;
-def err_decomp_decl_paren_init : Error<
-  "decomposition declaration %0 cannot have a parenthesized initializer">;
 def err_decomp_decl_wrong_number_bindings : Error<
   "type %0 decomposes into %2 elements, but %select{only |}3%1 "
   "names were provided">;
@@ -475,9 +481,12 @@ def warn_access_decl_deprecated : Warning<
 def err_access_decl : Error<
   "ISO C++11 does not allow access declarations; "
   "use using declarations instead">;
+def ext_dynamic_exception_spec : ExtWarn<
+  "ISO C++1z does not allow dynamic exception specifications">,
+  InGroup<DynamicExceptionSpec>, DefaultError;
 def warn_exception_spec_deprecated : Warning<
   "dynamic exception specifications are deprecated">,
-  InGroup<Deprecated>, DefaultIgnore;
+  InGroup<DeprecatedDynamicExceptionSpec>, DefaultIgnore;
 def note_exception_spec_deprecated : Note<"use '%0' instead">;
 def warn_deprecated_copy_operation : Warning<
   "definition of implicit copy %select{constructor|assignment operator}1 "
@@ -906,7 +915,7 @@ def warn_strict_multiple_method_decl : Warning<
   "multiple methods named %0 found">, InGroup<StrictSelector>, DefaultIgnore;
 def warn_accessor_property_type_mismatch : Warning<
   "type of property %0 does not match type of accessor %1">;
-def not_conv_function_declared_at : Note<"type conversion function declared here">;
+def note_conv_function_declared_at : Note<"type conversion function declared here">;
 def note_method_declared_at : Note<"method %0 declared here">;
 def note_property_attribute : Note<"property %0 is declared "
   "%select{deprecated|unavailable|partial}1 here">;
@@ -922,7 +931,7 @@ def warn_objc_cdirective_format_string :
   InGroup<ObjCCStringFormat>, DefaultIgnore;
 def err_objc_var_decl_inclass : 
     Error<"cannot declare variable inside @interface or @protocol">;
-def error_missing_method_context : Error<
+def err_missing_method_context : Error<
   "missing context for method declaration">;
 def err_objc_property_attr_mutually_exclusive : Error<
   "property attributes '%0' and '%1' are mutually exclusive">;
@@ -1013,7 +1022,7 @@ def warn_property_getter_owning_mismatch : Warning<
 def warn_property_redecl_getter_mismatch : Warning<
   "getter name mismatch between property redeclaration (%1) and its original "
   "declaration (%0)">, InGroup<PropertyAttr>;
-def error_property_setter_ambiguous_use : Error<
+def err_property_setter_ambiguous_use : Error<
   "synthesized properties %0 and %1 both claim setter %2 -"
   " use of this setter will cause unexpected behavior">;
 def warn_default_atomic_custom_getter_setter : Warning<
@@ -1032,12 +1041,12 @@ def err_use_continuation_class_redeclaration_readwrite : Error<
   "'readonly' public property?)">;
 def err_continuation_class : Error<"class extension has no primary class">;
 def err_property_type : Error<"property cannot have array or function type %0">;
-def error_missing_property_context : Error<
+def err_missing_property_context : Error<
   "missing context for property implementation declaration">;
-def error_bad_property_decl : Error<
+def err_bad_property_decl : Error<
   "property implementation must have its declaration in interface %0 or one of "
   "its extensions">;
-def error_category_property : Error<
+def err_category_property : Error<
   "property declared in category %0 cannot be implemented in "
   "class implementation">;
 def note_property_declare : Note<
@@ -1046,19 +1055,17 @@ def note_protocol_property_declare : Note<
   "it could also be property of type %0 declared here">;
 def note_property_synthesize : Note<
   "property synthesized here">;
-def error_synthesize_category_decl : Error<
+def err_synthesize_category_decl : Error<
   "@synthesize not allowed in a category's implementation">;
-def error_synthesize_on_class_property : Error<
+def err_synthesize_on_class_property : Error<
   "@synthesize not allowed on a class property %0">;
-def error_reference_property : Error<
-  "property of reference type is not supported">;
-def error_missing_property_interface : Error<
+def err_missing_property_interface : Error<
   "property implementation in a category with no category declaration">;
-def error_bad_category_property_decl : Error<
+def err_bad_category_property_decl : Error<
   "property implementation must have its declaration in the category %0">;
-def error_bad_property_context : Error<
+def err_bad_property_context : Error<
   "property implementation must be in a class or category implementation">;
-def error_missing_property_ivar_decl : Error<
+def err_missing_property_ivar_decl : Error<
   "synthesized property %0 must either be named the same as a compatible"
   " instance variable or must explicitly name an instance variable">;
 def err_arc_perform_selector_retains : Error<
@@ -1092,25 +1099,25 @@ def note_arc_weak_also_accessed_here : Note<
 def err_incomplete_synthesized_property : Error<
   "cannot synthesize property %0 with incomplete type %1">;
 
-def error_property_ivar_type : Error<
+def err_property_ivar_type : Error<
   "type of property %0 (%1) does not match type of instance variable %2 (%3)">;
-def error_property_accessor_type : Error<
+def err_property_accessor_type : Error<
   "type of property %0 (%1) does not match type of accessor %2 (%3)">;
-def error_ivar_in_superclass_use : Error<
+def err_ivar_in_superclass_use : Error<
   "property %0 attempting to use instance variable %1 declared in super class %2">;
-def error_weak_property : Error<
+def err_weak_property : Error<
   "existing instance variable %1 for __weak property %0 must be __weak">;
-def error_strong_property : Error<
+def err_strong_property : Error<
   "existing instance variable %1 for strong property %0 may not be __weak">;
-def error_dynamic_property_ivar_decl : Error<
+def err_dynamic_property_ivar_decl : Error<
   "dynamic property cannot have instance variable specification">;
-def error_duplicate_ivar_use : Error<
+def err_duplicate_ivar_use : Error<
   "synthesized properties %0 and %1 both claim instance variable %2">;
-def error_property_implemented : Error<"property %0 is already implemented">;
+def err_property_implemented : Error<"property %0 is already implemented">;
 def warn_objc_missing_super_call : Warning<
   "method possibly missing a [super %0] call">,
   InGroup<ObjCMissingSuperCalls>;
-def error_dealloc_bad_result_type : Error<
+def err_dealloc_bad_result_type : Error<
   "dealloc return type must be correctly specified as 'void' under ARC, "
   "instead of %0">;
 def warn_undeclared_selector : Warning<
@@ -1134,7 +1141,7 @@ def warn_unimplemented_selector:  Warning<
   InGroup<Selector>, DefaultIgnore;
 def warn_unimplemented_protocol_method : Warning<
   "method %0 in protocol %1 not implemented">, InGroup<Protocol>;
-def warning_multiple_selectors: Warning<
+def warn_multiple_selectors: Warning<
   "several methods with selector %0 of mismatched types are found "
   "for the @selector expression">,
   InGroup<SelectorTypeMismatch>, DefaultIgnore;
@@ -1306,8 +1313,6 @@ def err_mismatched_exception_spec : Error<
   "exception specification in declaration does not match previous declaration">;
 def ext_mismatched_exception_spec : ExtWarn<err_mismatched_exception_spec.Text>,
   InGroup<MicrosoftExceptionSpec>;
-def warn_mismatched_exception_spec_no_exceptions : ExtWarn<err_mismatched_exception_spec.Text>,
-  InGroup<DiagGroup<"exception-spec-no-exceptions">>;
 def err_override_exception_spec : Error<
   "exception specification of overriding function is more lax than "
   "base version">;
@@ -2448,7 +2453,7 @@ def err_property_is_variably_modified : Error<
   "property %0 has a variably modified type">;
 def err_no_accessor_for_property : Error<
   "no %select{getter|setter}0 defined for property %1">;
-def error_cannot_find_suitable_accessor : Error<
+def err_cannot_find_suitable_accessor : Error<
   "cannot find suitable %select{getter|setter}0 for property %1">;
 
 def warn_alloca_align_alignof : Warning<
@@ -4407,6 +4412,10 @@ def warn_missing_prototype : Warning<
   InGroup<DiagGroup<"missing-prototypes">>, DefaultIgnore;
 def note_declaration_not_a_prototype : Note<
   "this declaration is not a prototype; add 'void' to make it a prototype for a zero-parameter function">; 
+def warn_strict_prototypes : Warning<
+  "this %select{function declaration is not|"
+  "old-style function definition is not preceded by}0 a prototype">,
+  InGroup<DiagGroup<"strict-prototypes">>, DefaultIgnore;
 def warn_missing_variable_declarations : Warning<
   "no previous extern declaration for non-static variable %0">,
   InGroup<DiagGroup<"missing-variable-declarations">>, DefaultIgnore;
@@ -4553,10 +4562,15 @@ def err_redefinition_different_typedef : Error<
   "%select{typedef|type alias|type alias template}0 "
   "redefinition with different types%diff{ ($ vs $)|}1,2">;
 def err_tag_reference_non_tag : Error<
-  "elaborated type refers to %select{a non-tag type|a typedef|a type alias|a template|a type alias template|a template template argument}0">;
+  "%select{non-struct type|non-class type|non-union type|non-enum "
+  "type|typedef|type alias|template|type alias template|template "
+  "template argument}1 %0 cannot be referenced with a "
+  "%select{struct|interface|union|class|enum}2 specifier">;
 def err_tag_reference_conflict : Error<
-  "implicit declaration introduced by elaborated type conflicts with "
-  "%select{a declaration|a typedef|a type alias|a template}0 of the same name">;
+  "implicit declaration introduced by elaborated type conflicts with a "
+  "%select{non-struct type|non-class type|non-union type|non-enum "
+  "type|typedef|type alias|template|type alias template|template "
+  "template argument}0 of the same name">;
 def err_dependent_tag_decl : Error<
   "%select{declaration|definition}0 of "
   "%select{struct|interface|union|class|enum}1 in a dependent scope">;
@@ -5373,7 +5387,7 @@ def err_typecheck_member_reference_struct_union : Error<
   "member reference base type %0 is not a structure or union">;
 def err_typecheck_member_reference_ivar : Error<
   "%0 does not have a member named %1">;
-def error_arc_weak_ivar_access : Error<
+def err_arc_weak_ivar_access : Error<
   "dereferencing a __weak pointer is not allowed due to possible "
   "null value caused by race condition, assign it to strong variable first">;
 def err_typecheck_member_reference_arrow : Error<
@@ -5775,7 +5789,7 @@ def ext_gnu_ptr_func_arith : Extension<
   "arithmetic on%select{ a|}0 pointer%select{|s}0 to%select{ the|}2 function "
   "type%select{|s}2 %1%select{| and %3}2 is a GNU extension">,
   InGroup<PointerArith>;
-def error_readonly_message_assignment : Error<
+def err_readonly_message_assignment : Error<
   "assigning to 'readonly' return result of an Objective-C message not allowed">;
 def ext_integer_increment_complex : Extension<
   "ISO C does not support '++'/'--' on complex integer type %0">;
@@ -5791,7 +5805,7 @@ def err_nogetter_property_compound_assignment : Error<
   "a getter method is needed to perform a compound assignment on a property">;
 def err_nogetter_property_incdec : Error<
   "no getter method %1 for %select{increment|decrement}0 of property">;
-def error_no_subobject_property_setting : Error<
+def err_no_subobject_property_setting : Error<
   "expression is not assignable">;
 def err_qualified_objc_access : Error<
   "%select{property|instance variable}0 access cannot be qualified with '%1'">;
@@ -5821,12 +5835,12 @@ def warn_instance_method_not_found_with_typo : Warning<
 def warn_class_method_not_found_with_typo : Warning<
   "class method %objcclass0 not found (return type defaults to 'id')"
   "; did you mean %objcclass2?">, InGroup<MethodAccess>;
-def error_method_not_found_with_typo : Error<
+def err_method_not_found_with_typo : Error<
   "%select{instance|class}1 method %0 not found "
   "; did you mean %2?">;
-def error_no_super_class_message : Error<
+def err_no_super_class_message : Error<
   "no @interface declaration found in class messaging of %0">;
-def error_root_class_cannot_use_super : Error<
+def err_root_class_cannot_use_super : Error<
   "%0 cannot use 'super' because it is a root class">;
 def err_invalid_receiver_to_message_super : Error<
   "'super' is only valid in a method body">;
@@ -5841,11 +5855,11 @@ def err_bad_receiver_type : Error<"bad receiver type %0">;
 def err_incomplete_receiver_type : Error<"incomplete receiver type %0">;
 def err_unknown_receiver_suggest : Error<
   "unknown receiver %0; did you mean %1?">;
-def error_objc_throw_expects_object : Error<
+def err_objc_throw_expects_object : Error<
   "@throw requires an Objective-C object type (%0 invalid)">;
-def error_objc_synchronized_expects_object : Error<
+def err_objc_synchronized_expects_object : Error<
   "@synchronized requires an Objective-C object type (%0 invalid)">;
-def error_rethrow_used_outside_catch : Error<
+def err_rethrow_used_outside_catch : Error<
   "@throw (rethrow) used outside of a @catch block">;
 def err_attribute_multiple_objc_gc : Error<
   "multiple garbage collection attributes specified for type">;
@@ -6409,7 +6423,7 @@ def err_typecheck_missing_return_type_incompatible : Error<
   "return type must match previous return type}0,1 when %select{block "
   "literal|lambda expression}2 has unspecified explicit return type">;
 
-def not_incomplete_class_and_qualified_id : Note<
+def note_incomplete_class_and_qualified_id : Note<
   "conformance of forward class %0 to protocol %1 can not be confirmed">;
 def warn_incompatible_qualified_id : Warning<
   "%select{%diff{assigning to $ from incompatible type $|"
@@ -6813,6 +6827,11 @@ def err_cuda_host_shared : Error<
     "__shared__ local variables not allowed in "
     "%select{__device__|__global__|__host__|__host__ __device__}0 functions">;
 def err_cuda_nonglobal_constant : Error<"__constant__ variables must be global">;
+def err_cuda_ovl_target : Error<
+  "%select{__device__|__global__|__host__|__host__ __device__}0 function %1 "
+  "cannot overload %select{__device__|__global__|__host__|__host__ __device__}2 function %3">;
+def note_cuda_ovl_candidate_target_mismatch : Note<
+    "candidate template ignored: target attributes do not match">;
 
 def warn_non_pod_vararg_with_format_string : Warning<
   "cannot pass %select{non-POD|non-trivial}0 object of type %1 to variadic "
@@ -7941,13 +7960,11 @@ def warn_direct_super_initialize_call : Warning<
   "explicit call to [super initialize] should only be in implementation "
   "of +initialize">,
    InGroup<ExplicitInitializeCall>;
-def error_ivar_use_in_class_method : Error<
+def err_ivar_use_in_class_method : Error<
   "instance variable %0 accessed in class method">;
-def error_implicit_ivar_access : Error<
-  "instance variable %0 cannot be accessed because 'self' has been redeclared">;
-def error_private_ivar_access : Error<"instance variable %0 is private">,
+def err_private_ivar_access : Error<"instance variable %0 is private">,
   AccessControl;
-def error_protected_ivar_access : Error<"instance variable %0 is protected">,
+def err_protected_ivar_access : Error<"instance variable %0 is protected">,
   AccessControl;
 def warn_maynot_respond : Warning<"%0 may not respond to %1">;
 def ext_typecheck_base_super : Warning<
@@ -8091,7 +8108,7 @@ def err_sampler_argument_required : Error<
   "sampler_t variable required - got %0">;
 def err_wrong_sampler_addressspace: Error<
   "sampler type cannot be used with the __local and __global address space qualifiers">;
-def error_opencl_cast_non_zero_to_event_t : Error<
+def err_opencl_cast_non_zero_to_event_t : Error<
   "cannot cast non-zero value '%0' to 'event_t'">;
 def err_opencl_global_invalid_addr_space : Error<
   "%select{program scope|static local|extern}0 variable must reside in %1 address space">;
@@ -8555,7 +8572,7 @@ def err_omp_expected_int_param : Error<
   "expected a reference to an integer-typed parameter">;
 def err_omp_at_least_one_motion_clause_required : Error<
   "expected at least one 'to' clause or 'from' clause specified to '#pragma omp target update'">;
-def  err_omp_usedeviceptr_not_a_pointer : Error<
+def err_omp_usedeviceptr_not_a_pointer : Error<
   "expected pointer or reference to pointer in 'use_device_ptr' clause">;
 def err_omp_argument_type_isdeviceptr : Error <
   "expected pointer, array, reference to pointer, or reference to array in 'is_device_ptr clause'">;

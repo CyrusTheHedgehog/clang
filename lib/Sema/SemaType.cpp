@@ -718,6 +718,7 @@ static void maybeSynthesizeBlockSignature(TypeProcessingState &state,
       /*NumExceptions=*/0,
       /*NoexceptExpr=*/nullptr,
       /*ExceptionSpecTokens=*/nullptr,
+      /*DeclsInPrototype=*/None,
       loc, loc, declarator));
 
   // For consistency, make sure the state still has us as processing
@@ -4321,6 +4322,19 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       if (FTI.isAmbiguous)
         warnAboutAmbiguousFunction(S, D, DeclType, T);
 
+      // GNU warning -Wstrict-prototypes
+      //   Warn if a function declaration is without a prototype.
+      //   This warning is issued for all kinds of unprototyped function
+      //   declarations (i.e. function type typedef, function pointer etc.)
+      //   C99 6.7.5.3p14:
+      //   The empty list in a function declarator that is not part of a
+      //   definition of that function specifies that no information
+      //   about the number or types of the parameters is supplied.
+      if (D.getFunctionDefinitionKind() == FDK_Declaration &&
+          FTI.NumParams == 0 && !LangOpts.CPlusPlus)
+        S.Diag(DeclType.Loc, diag::warn_strict_prototypes)
+            << 0 << FixItHint::CreateInsertion(FTI.getRParenLoc(), "void");
+
       FunctionType::ExtInfo EI(getCCForDeclaratorChunk(S, D, FTI, chunkIndex));
 
       if (!FTI.NumParams && !FTI.isVariadic && !LangOpts.CPlusPlus) {
@@ -4457,7 +4471,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         if (FTI.getExceptionSpecType() == EST_Dynamic) {
           // FIXME: It's rather inefficient to have to split into two vectors
           // here.
-          unsigned N = FTI.NumExceptions;
+          unsigned N = FTI.getNumExceptions();
           DynamicExceptions.reserve(N);
           DynamicExceptionRanges.reserve(N);
           for (unsigned I = 0; I != N; ++I) {

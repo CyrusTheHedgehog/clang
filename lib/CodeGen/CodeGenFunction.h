@@ -2631,6 +2631,10 @@ public:
   void EmitOMPTeamsDistributeDirective(const OMPTeamsDistributeDirective &S);
   void
   EmitOMPTeamsDistributeSimdDirective(const OMPTeamsDistributeSimdDirective &S);
+  void EmitOMPTeamsDistributeParallelForSimdDirective(
+      const OMPTeamsDistributeParallelForSimdDirective &S);
+  void EmitOMPTeamsDistributeParallelForDirective(
+      const OMPTeamsDistributeParallelForDirective &S);
 
   /// Emit outlined function for the target directive.
   static std::pair<llvm::Function * /*OutlinedFn*/,

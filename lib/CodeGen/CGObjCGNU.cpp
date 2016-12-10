@@ -560,11 +560,6 @@ public:
   llvm::Constant *BuildByrefLayout(CodeGenModule &CGM, QualType T) override {
     return NULLPtr;
   }
-
-  llvm::GlobalVariable *GetClassGlobal(StringRef Name,
-                                       bool Weak = false) override {
-    return nullptr;
-  }
 };
 
 /// Class representing the legacy GCC Objective-C ABI.  This is the default when
@@ -2450,7 +2445,8 @@ llvm::Function *CGObjCGNU::ModuleInitFunction() {
   llvm::GlobalVariable *selectorList = [&] {
     ConstantInitBuilder builder(CGM);
     auto selectors = builder.beginArray(selStructTy);
-    for (auto &entry : SelectorTable) {
+    auto &table = SelectorTable; // MSVC workaround
+    for (auto &entry : table) {
 
       std::string selNameStr = entry.first.getAsString();
       llvm::Constant *selName = ExportUniqueString(selNameStr, ".objc_sel_name");

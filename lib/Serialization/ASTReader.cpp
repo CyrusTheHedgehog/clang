@@ -1953,7 +1953,7 @@ void ASTReader::resolvePendingMacro(IdentifierInfo *II,
   }
 
   if (Latest)
-    PP.setLoadedMacroDirective(II, Latest);
+    PP.setLoadedMacroDirective(II, Earliest, Latest);
 }
 
 ASTReader::InputFileInfo
@@ -3578,7 +3578,8 @@ static bool SkipCursorToBlock(BitstreamCursor &Cursor, unsigned BlockID) {
 ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
                                             ModuleKind Type,
                                             SourceLocation ImportLoc,
-                                            unsigned ClientLoadCapabilities) {
+                                            unsigned ClientLoadCapabilities,
+                                            SmallVectorImpl<ImportedSubmodule> *Imported) {
   llvm::SaveAndRestore<SourceLocation>
     SetCurImportLocRAII(CurrentImportLoc, ImportLoc);
 
@@ -3743,6 +3744,10 @@ ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
     }
   }
   UnresolvedModuleRefs.clear();
+
+  if (Imported)
+    Imported->append(ImportedModules.begin(),
+                     ImportedModules.end());
 
   // FIXME: How do we load the 'use'd modules? They may not be submodules.
   // Might be unnecessary as use declarations are only used to build the
@@ -5793,27 +5798,18 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
     return Context.getAtomicType(ValueType);
   }
 
-  case TYPE_READ_PIPE: {
-    if (Record.size() != 1) {
+  case TYPE_PIPE: {
+    if (Record.size() != 2) {
       Error("Incorrect encoding of pipe type");
       return QualType();
     }
 
     // Reading the pipe element type.
     QualType ElementType = readType(*Loc.F, Record, Idx);
-    return Context.getReadPipeType(ElementType);
+    unsigned ReadOnly = Record[1];
+    return Context.getPipeType(ElementType, ReadOnly);
   }
 
-  case TYPE_WRITE_PIPE: {
-    if (Record.size() != 1) {
-      Error("Incorrect encoding of pipe type");
-      return QualType();
-    }
-
-    // Reading the pipe element type.
-    QualType ElementType = readType(*Loc.F, Record, Idx);
-    return Context.getWritePipeType(ElementType);
-  }
   }
   llvm_unreachable("Invalid TypeCode!");
 }

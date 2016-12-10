@@ -2738,6 +2738,22 @@ AST_MATCHER_P_OVERLOAD(QualType, pointsTo, internal::Matcher<Decl>,
       .matches(Node, Finder, Builder);
 }
 
+/// \brief Matches if the matched type matches the unqualified desugared
+/// type of the matched node.
+///
+/// For example, in:
+/// \code
+///   class A {};
+///   using B = A;
+/// \endcode
+/// The matcher type(hasUniqualifeidDesugaredType(recordType())) matches
+/// both B and A.
+AST_MATCHER_P(Type, hasUnqualifiedDesugaredType, internal::Matcher<Type>,
+              InnerMatcher) {
+  return InnerMatcher.matches(*Node.getUnqualifiedDesugaredType(), Finder,
+                              Builder);
+}
+
 /// \brief Matches if the matched type is a reference type and the referenced
 /// type matches the specified matcher.
 ///
@@ -5002,6 +5018,22 @@ AST_MATCHER_P(ElaboratedType, namesType, internal::Matcher<QualType>,
 ///
 /// \c substTemplateTypeParmType() matches the type of 't' but not '1'
 AST_TYPE_MATCHER(SubstTemplateTypeParmType, substTemplateTypeParmType);
+
+/// \brief Matches template type parameter substitutions that have a replacement
+/// type that matches the provided matcher.
+///
+/// Given
+/// \code
+///   template <typename T>
+///   double F(T t);
+///   int i;
+///   double j = F(i);
+/// \endcode
+///
+/// \c substTemplateTypeParmType(hasReplacementType(type())) matches int
+AST_TYPE_TRAVERSE_MATCHER(
+    hasReplacementType, getReplacementType,
+    AST_POLYMORPHIC_SUPPORTED_TYPES(SubstTemplateTypeParmType));
 
 /// \brief Matches template type parameter types.
 ///

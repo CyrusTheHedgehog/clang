@@ -839,6 +839,11 @@ public:
   const Expr *skipRValueSubobjectAdjustments(
       SmallVectorImpl<const Expr *> &CommaLHS,
       SmallVectorImpl<SubobjectAdjustment> &Adjustments) const;
+  const Expr *skipRValueSubobjectAdjustments() const {
+    SmallVector<const Expr *, 8> CommaLHSs;
+    SmallVector<SubobjectAdjustment, 8> Adjustments;
+    return skipRValueSubobjectAdjustments(CommaLHSs, Adjustments);
+  }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() >= firstExprConstant &&
@@ -3781,7 +3786,7 @@ public:
 
   /// \brief Build an empty initializer list.
   explicit InitListExpr(EmptyShell Empty)
-    : Expr(InitListExprClass, Empty) { }
+    : Expr(InitListExprClass, Empty), AltForm(nullptr, true) { }
 
   unsigned getNumInits() const { return InitExprs.size(); }
 
@@ -3888,6 +3893,11 @@ public:
   // Is this an initializer for an array of characters, initialized by a string
   // literal or an @encode?
   bool isStringLiteralInit() const;
+
+  /// Is this a transparent initializer list (that is, an InitListExpr that is
+  /// purely syntactic, and whose semantics are that of the sole contained
+  /// initializer)?
+  bool isTransparent() const;
 
   SourceLocation getLBraceLoc() const { return LBraceLoc; }
   void setLBraceLoc(SourceLocation Loc) { LBraceLoc = Loc; }

@@ -74,7 +74,8 @@ class Parser : public CodeCompletionHandler {
   // a statement).
   SourceLocation PrevTokLocation;
 
-  unsigned short ParenCount, BracketCount, BraceCount;
+  unsigned short ParenCount = 0, BracketCount = 0, BraceCount = 0;
+  unsigned short MisplacedModuleBeginCount = 0;
 
   /// Actions - These are the callbacks we invoke as we parse various constructs
   /// in the file.
@@ -1540,8 +1541,6 @@ private:
                                       bool *MayBePseudoDestructor = nullptr,
                                       bool IsTypename = false,
                                       IdentifierInfo **LastII = nullptr);
-
-  void CheckForLParenAfterColonColon();
 
   //===--------------------------------------------------------------------===//
   // C++0x 5.1.2: Lambda expressions

@@ -401,6 +401,20 @@ unsigned TargetCodeGenInfo::getOpenCLKernelCallingConv() const {
   return llvm::CallingConv::C;
 }
 
+llvm::Constant *TargetCodeGenInfo::getNullPointer(const CodeGen::CodeGenModule &CGM,
+    llvm::PointerType *T, QualType QT) const {
+  return llvm::ConstantPointerNull::get(T);
+}
+
+llvm::Value *TargetCodeGenInfo::performAddrSpaceCast(
+    CodeGen::CodeGenFunction &CGF, llvm::Value *Src, QualType SrcTy,
+    QualType DestTy) const {
+  // Since target may map different address spaces in AST to the same address
+  // space, an address space conversion may end up as a bitcast.
+  return CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(Src,
+             CGF.ConvertType(DestTy));
+}
+
 static bool isEmptyRecord(ASTContext &Context, QualType T, bool AllowArrays);
 
 /// isEmptyField - Return true iff a the field is "empty", that is it
@@ -958,6 +972,11 @@ public:
     // scalar registers.
     return occupiesMoreThan(CGT, scalars, /*total*/ 3);
   }  
+
+  bool isSwiftErrorInRegister() const override {
+    // x86-32 lowering does not support passing swifterror in a register.
+    return false;
+  }
 };
 
 class X86_32TargetCodeGenInfo : public TargetCodeGenInfo {
@@ -2012,6 +2031,9 @@ public:
                                     bool asReturnValue) const override {
     return occupiesMoreThan(CGT, scalars, /*total*/ 4);
   }  
+  bool isSwiftErrorInRegister() const override {
+    return true;
+  }
 };
 
 /// WinX86_64ABIInfo - The Windows X86_64 ABI information.
@@ -2041,6 +2063,10 @@ public:
                                     ArrayRef<llvm::Type *> scalars,
                                     bool asReturnValue) const override {
     return occupiesMoreThan(CGT, scalars, /*total*/ 4);
+  }
+
+  bool isSwiftErrorInRegister() const override {
+    return true;
   }
 
 private:
@@ -4628,6 +4654,9 @@ private:
                                     bool asReturnValue) const override {
     return occupiesMoreThan(CGT, scalars, /*total*/ 4);
   }
+  bool isSwiftErrorInRegister() const override {
+    return true;
+  }
 };
 
 class AArch64TargetCodeGenInfo : public TargetCodeGenInfo {
@@ -5180,6 +5209,9 @@ private:
                                     ArrayRef<llvm::Type*> scalars,
                                     bool asReturnValue) const override {
     return occupiesMoreThan(CGT, scalars, /*total*/ 4);
+  }
+  bool isSwiftErrorInRegister() const override {
+    return true;
   }
 };
 
@@ -5948,6 +5980,9 @@ public:
                                     ArrayRef<llvm::Type*> scalars,
                                     bool asReturnValue) const override {
     return occupiesMoreThan(CGT, scalars, /*total*/ 4);
+  }
+  bool isSwiftErrorInRegister() const override {
+    return true;
   }
 };
 
@@ -7054,8 +7089,10 @@ public:
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &M) const override;
   unsigned getOpenCLKernelCallingConv() const override;
-};
 
+  llvm::Constant *getNullPointer(const CodeGen::CodeGenModule &CGM,
+      llvm::PointerType *T, QualType QT) const override;
+};
 }
 
 static void appendOpenCLVersionMD (CodeGen::CodeGenModule &CGM);
@@ -7117,6 +7154,24 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
 
 unsigned AMDGPUTargetCodeGenInfo::getOpenCLKernelCallingConv() const {
   return llvm::CallingConv::AMDGPU_KERNEL;
+}
+
+// Currently LLVM assumes null pointers always have value 0,
+// which results in incorrectly transformed IR. Therefore, instead of
+// emitting null pointers in private and local address spaces, a null
+// pointer in generic address space is emitted which is casted to a
+// pointer in local or private address space.
+llvm::Constant *AMDGPUTargetCodeGenInfo::getNullPointer(
+    const CodeGen::CodeGenModule &CGM, llvm::PointerType *PT,
+    QualType QT) const {
+  if (CGM.getContext().getTargetNullPointerValue(QT) == 0)
+    return llvm::ConstantPointerNull::get(PT);
+
+  auto &Ctx = CGM.getContext();
+  auto NPT = llvm::PointerType::get(PT->getElementType(),
+      Ctx.getTargetAddressSpace(LangAS::opencl_generic));
+  return llvm::ConstantExpr::getAddrSpaceCast(
+      llvm::ConstantPointerNull::get(NPT), PT);
 }
 
 //===----------------------------------------------------------------------===//
@@ -7780,8 +7835,10 @@ void SPIRTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
   // SPIR v2.0 s2.12 - The SPIR version used by the module is stored in the
   // opencl.spir.version named metadata.
   llvm::Metadata *SPIRVerElts[] = {
-      llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, 2)),
-      llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, 0))};
+      llvm::ConstantAsMetadata::get(
+          llvm::ConstantInt::get(Int32Ty, CGM.getLangOpts().OpenCLVersion / 100)),
+      llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+          Int32Ty, (CGM.getLangOpts().OpenCLVersion / 100 > 1) ? 0 : 2))};
   llvm::NamedMDNode *SPIRVerMD =
       M.getOrInsertNamedMetadata("opencl.spir.version");
   SPIRVerMD->addOperand(llvm::MDNode::get(Ctx, SPIRVerElts));

@@ -94,6 +94,11 @@ class FunctionArgList;
 class CoverageMappingModuleGen;
 class TargetCodeGenInfo;
 
+enum ForDefinition_t : bool {
+  NotForDefinition = false,
+  ForDefinition = true
+};
+
 struct OrderGlobalInits {
   unsigned int priority;
   unsigned int lex_order;
@@ -437,13 +442,6 @@ private:
   /// int * but is actually an Obj-C class pointer.
   llvm::WeakVH CFConstantStringClassRef;
 
-  /// Cached reference to the class for constant strings. This value has type
-  /// int * but is actually an Obj-C class pointer.
-  llvm::WeakVH ConstantStringClassRef;
-
-  /// \brief The LLVM type corresponding to NSConstantString.
-  llvm::StructType *NSConstantStringType = nullptr;
-
   /// \brief The type used to describe the state of a fast enumeration in
   /// Objective-C's for..in loop.
   QualType ObjCFastEnumerationStateType;
@@ -686,7 +684,9 @@ public:
     llvm_unreachable("unknown visibility!");
   }
 
-  llvm::Constant *GetAddrOfGlobal(GlobalDecl GD, bool IsForDefinition = false);
+  llvm::Constant *GetAddrOfGlobal(GlobalDecl GD,
+                                  ForDefinition_t IsForDefinition
+                                    = NotForDefinition);
 
   /// Will return a global variable of the given type. If a variable with a
   /// different type already exists then a new  variable with the right type
@@ -716,14 +716,16 @@ public:
   /// the same mangled name but some other type.
   llvm::Constant *GetAddrOfGlobalVar(const VarDecl *D,
                                      llvm::Type *Ty = nullptr,
-                                     bool IsForDefinition = false);
+                                     ForDefinition_t IsForDefinition
+                                       = NotForDefinition);
 
   /// Return the address of the given function. If Ty is non-null, then this
   /// function will use the specified type if it has to create it.
   llvm::Constant *GetAddrOfFunction(GlobalDecl GD, llvm::Type *Ty = nullptr,
                                     bool ForVTable = false,
                                     bool DontDefer = false,
-                                    bool IsForDefinition = false);
+                                    ForDefinition_t IsForDefinition
+                                      = NotForDefinition);
 
   /// Get the address of the RTTI descriptor for the given type.
   llvm::Constant *GetAddrOfRTTIDescriptor(QualType Ty, bool ForEH = false);
@@ -831,7 +833,8 @@ public:
   getAddrOfCXXStructor(const CXXMethodDecl *MD, StructorType Type,
                        const CGFunctionInfo *FnInfo = nullptr,
                        llvm::FunctionType *FnType = nullptr,
-                       bool DontDefer = false, bool IsForDefinition = false);
+                       bool DontDefer = false,
+                       ForDefinition_t IsForDefinition = NotForDefinition);
 
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
@@ -1158,18 +1161,24 @@ public:
   llvm::Value *
   createOpenCLIntToSamplerConversion(const Expr *E, CodeGenFunction &CGF);
 
+  /// Get target specific null pointer.
+  /// \param T is the LLVM type of the null pointer.
+  /// \param QT is the clang QualType of the null pointer.
+  llvm::Constant *getNullPointer(llvm::PointerType *T, QualType QT);
+
 private:
   llvm::Constant *
   GetOrCreateLLVMFunction(StringRef MangledName, llvm::Type *Ty, GlobalDecl D,
                           bool ForVTable, bool DontDefer = false,
                           bool IsThunk = false,
                           llvm::AttributeSet ExtraAttrs = llvm::AttributeSet(),
-                          bool IsForDefinition = false);
+                          ForDefinition_t IsForDefinition = NotForDefinition);
 
   llvm::Constant *GetOrCreateLLVMGlobal(StringRef MangledName,
                                         llvm::PointerType *PTy,
                                         const VarDecl *D,
-                                        bool IsForDefinition = false);
+                                        ForDefinition_t IsForDefinition
+                                          = NotForDefinition);
 
   void setNonAliasAttributes(const Decl *D, llvm::GlobalObject *GO);
 

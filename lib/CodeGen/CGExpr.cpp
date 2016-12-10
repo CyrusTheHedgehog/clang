@@ -24,6 +24,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/NSAPI.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringExtras.h"
@@ -1219,11 +1220,10 @@ static bool hasBooleanRepresentation(QualType Ty) {
 
 static bool getRangeForType(CodeGenFunction &CGF, QualType Ty,
                             llvm::APInt &Min, llvm::APInt &End,
-                            bool StrictEnums) {
+                            bool StrictEnums, bool IsBool) {
   const EnumType *ET = Ty->getAs<EnumType>();
   bool IsRegularCPlusPlusEnum = CGF.getLangOpts().CPlusPlus && StrictEnums &&
                                 ET && !ET->getDecl()->isFixed();
-  bool IsBool = hasBooleanRepresentation(Ty);
   if (!IsBool && !IsRegularCPlusPlusEnum)
     return false;
 
@@ -1253,8 +1253,8 @@ static bool getRangeForType(CodeGenFunction &CGF, QualType Ty,
 
 llvm::MDNode *CodeGenFunction::getRangeForLoadFromType(QualType Ty) {
   llvm::APInt Min, End;
-  if (!getRangeForType(*this, Ty, Min, End,
-                       CGM.getCodeGenOpts().StrictEnums))
+  if (!getRangeForType(*this, Ty, Min, End, CGM.getCodeGenOpts().StrictEnums,
+                       hasBooleanRepresentation(Ty)))
     return nullptr;
 
   llvm::MDBuilder MDHelper(getLLVMContext());
@@ -1313,14 +1313,15 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
                                       false /*ConvertTypeToTag*/);
   }
 
-  bool NeedsBoolCheck =
-      SanOpts.has(SanitizerKind::Bool) && hasBooleanRepresentation(Ty);
+  bool IsBool = hasBooleanRepresentation(Ty) ||
+                NSAPI(CGM.getContext()).isObjCBOOLType(Ty);
+  bool NeedsBoolCheck = SanOpts.has(SanitizerKind::Bool) && IsBool;
   bool NeedsEnumCheck =
       SanOpts.has(SanitizerKind::Enum) && Ty->getAs<EnumType>();
   if (NeedsBoolCheck || NeedsEnumCheck) {
     SanitizerScope SanScope(this);
     llvm::APInt Min, End;
-    if (getRangeForType(*this, Ty, Min, End, true)) {
+    if (getRangeForType(*this, Ty, Min, End, /*StrictEnums=*/true, IsBool)) {
       --End;
       llvm::Value *Check;
       if (!Min)
@@ -3522,7 +3523,7 @@ LValue CodeGenFunction::EmitInitListLValue(const InitListExpr *E) {
     return EmitAggExprToLValue(E);
 
   // An lvalue initializer list must be initializing a reference.
-  assert(E->getNumInits() == 1 && "reference init with multiple values");
+  assert(E->isTransparent() && "non-transparent glvalue init list");
   return EmitLValue(E->getInit(0));
 }
 

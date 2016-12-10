@@ -13,10 +13,11 @@
 
 let Component = "Parse" in {
 
-def w_asm_qualifier_ignored : Warning<"ignored %0 qualifier on asm">,
-                              CatInlineAsm;
+def warn_asm_qualifier_ignored : Warning<
+  "ignored %0 qualifier on asm">, CatInlineAsm, InGroup<ASMIgnoredQualifier>;
 def warn_file_asm_volatile : Warning<
-  "meaningless 'volatile' on asm outside function">, CatInlineAsm;
+  "meaningless 'volatile' on asm outside function">, CatInlineAsm,
+  InGroup<ASMIgnoredQualifier>;
 
 let CategoryName = "Inline Assembly Issue" in {
 def err_asm_empty : Error<"__asm used with no assembly instructions">;
@@ -63,7 +64,7 @@ def ext_nullability : Extension<
   "type nullability specifier %0 is a Clang extension">,
   InGroup<DiagGroup<"nullability-extension">>;
 
-def error_empty_enum : Error<"use of empty enum">;
+def err_empty_enum : Error<"use of empty enum">;
 
 def ext_ident_list_in_param : Extension<
   "type-less parameter names in function declaration">;
@@ -346,8 +347,6 @@ def ext_c11_static_assert : Extension<
 def warn_cxx98_compat_static_assert : Warning<
   "static_assert declarations are incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
-def err_paren_after_colon_colon : Error<
-  "unexpected parenthesis after '::'">;
 def err_function_definition_not_allowed : Error<
   "function definition is not allowed here">;
 def err_expected_end_of_enumerator : Error<
@@ -421,8 +420,6 @@ def err_unexpected_protocol_qualifier : Error<
   "@implementation declaration cannot be protocol qualified">;
 def err_objc_unexpected_atend : Error<
   "'@end' appears where closing brace '}' is expected">;
-def error_property_ivar_decl : Error<
-  "property synthesize requires specification of an ivar">;
 def err_synthesized_property_name : Error<
   "expected a property name in @synthesize">;
 def warn_semicolon_before_method_body : Warning<
