@@ -463,6 +463,10 @@ public:
     CGM.maybeSetTrivialComdat(*MD, *Fn);
   }
 
+  void EmitCXXConstructors(const CXXConstructorDecl *D) {
+    CGM.EmitGlobal(GlobalDecl(D, Ctor_Complete));
+  }
+
 protected:
   ItaniumMangleContext &getMangleContext() override {
     return cast<MacintoshMangleContext>(CodeGen::CGCXXABI::getMangleContext());
