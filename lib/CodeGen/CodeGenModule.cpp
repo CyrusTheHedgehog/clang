@@ -1169,7 +1169,7 @@ void CodeGenModule::AddDependentLib(StringRef Lib) {
 }
 
 void CodeGenModule::AddHanafudaPatch(StringRef Old, StringRef New) {
-  llvm::ArrayRef<llvm::Metadata *> TupleArr =
+  llvm::Metadata *TupleArr[2] =
       {llvm::MDNode::get(getLLVMContext(),
        llvm::MDString::get(getLLVMContext(), Old)),
        llvm::MDNode::get(getLLVMContext(),

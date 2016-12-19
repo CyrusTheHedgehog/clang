@@ -1,7 +1,6 @@
 # This file sets up a CMakeCache for the second stage of a hanafuda distribution
 # bootstrap build.
 
-set(CMAKE_INSTALL_PREFIX "/opt/hanafuda" CACHE PATH "")
 set(PACKAGE_VENDOR "AxioDL" CACHE STRING "")
 set(CLANG_VENDOR_UTI "io.github.axiodl.clang" CACHE STRING "")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Hanafuda" CACHE STRING "")
@@ -14,13 +13,14 @@ set(LLVM_INCLUDE_DOCS OFF CACHE BOOL "")
 set(LLVM_INCLUDE_EXAMPLES OFF CACHE BOOL "")
 
 set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "")
-if (WIN32)
-set(CMAKE_C_FLAGS_RELWITHDEBINFO "/Ox -DNDEBUG" CACHE STRING "")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/Ox -DNDEBUG" CACHE STRING "")
-else()
+if(NOT WIN32)
+set(CMAKE_INSTALL_PREFIX "/opt/hanafuda" CACHE PATH "")
 set(LLVM_ENABLE_PIC OFF CACHE BOOL "")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -gline-tables-only -DNDEBUG" CACHE STRING "")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -gline-tables-only -DNDEBUG" CACHE STRING "")
+else()
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "/Ox /DNDEBUG" CACHE STRING "")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/Ox /DNDEBUG" CACHE STRING "")
 endif()
 
 # setup toolchain
