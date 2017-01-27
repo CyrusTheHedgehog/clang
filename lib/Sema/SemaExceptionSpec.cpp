@@ -288,14 +288,15 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
   // The new function declaration is only missing an empty exception
   // specification "throw()". If the throw() specification came from a
   // function in a system header that has C linkage, just add an empty
-  // exception specification to the "new" declaration. This is an
-  // egregious workaround for glibc, which adds throw() specifications
-  // to many libc functions as an optimization. Unfortunately, that
-  // optimization isn't permitted by the C++ standard, so we're forced
-  // to work around it here.
+  // exception specification to the "new" declaration. Note that C library
+  // implementations are permitted to add these nothrow exception
+  // specifications.
+  //
+  // Likewise if the old function is a builtin.
   if (MissingEmptyExceptionSpecification && NewProto &&
       (Old->getLocation().isInvalid() ||
-       Context.getSourceManager().isInSystemHeader(Old->getLocation())) &&
+       Context.getSourceManager().isInSystemHeader(Old->getLocation()) ||
+       Old->getBuiltinID()) &&
       Old->isExternC()) {
     New->setType(Context.getFunctionType(
         NewProto->getReturnType(), NewProto->getParamTypes(),
@@ -944,24 +945,37 @@ static CanThrowResult canSubExprsThrow(Sema &S, const Expr *E) {
 }
 
 static CanThrowResult canCalleeThrow(Sema &S, const Expr *E, const Decl *D) {
-  assert(D && "Expected decl");
-
-  // See if we can get a function type from the decl somehow.
-  const ValueDecl *VD = dyn_cast<ValueDecl>(D);
-  if (!VD) {
-    // In C++17, we may have a canonical exception specification. If so, use it.
-    if (auto *FT = E->getType().getCanonicalType()->getAs<FunctionProtoType>())
-      return FT->isNothrow(S.Context) ? CT_Cannot : CT_Can;
-    // If we have no clue what we're calling, assume the worst.
-    return CT_Can;
-  }
-
   // As an extension, we assume that __attribute__((nothrow)) functions don't
   // throw.
-  if (isa<FunctionDecl>(D) && D->hasAttr<NoThrowAttr>())
+  if (D && isa<FunctionDecl>(D) && D->hasAttr<NoThrowAttr>())
     return CT_Cannot;
 
-  QualType T = VD->getType();
+  QualType T;
+
+  // In C++1z, just look at the function type of the callee.
+  if (S.getLangOpts().CPlusPlus1z && isa<CallExpr>(E)) {
+    E = cast<CallExpr>(E)->getCallee();
+    T = E->getType();
+    if (T->isSpecificPlaceholderType(BuiltinType::BoundMember)) {
+      // Sadly we don't preserve the actual type as part of the "bound member"
+      // placeholder, so we need to reconstruct it.
+      E = E->IgnoreParenImpCasts();
+
+      // Could be a call to a pointer-to-member or a plain member access.
+      if (auto *Op = dyn_cast<BinaryOperator>(E)) {
+        assert(Op->getOpcode() == BO_PtrMemD || Op->getOpcode() == BO_PtrMemI);
+        T = Op->getRHS()->getType()
+              ->castAs<MemberPointerType>()->getPointeeType();
+      } else {
+        T = cast<MemberExpr>(E)->getMemberDecl()->getType();
+      }
+    }
+  } else if (const ValueDecl *VD = dyn_cast_or_null<ValueDecl>(D))
+    T = VD->getType();
+  else
+    // If we have no clue what we're calling, assume the worst.
+    return CT_Can;
+
   const FunctionProtoType *FT;
   if ((FT = T->getAs<FunctionProtoType>())) {
   } else if (const PointerType *PT = T->getAs<PointerType>())
@@ -1053,10 +1067,8 @@ CanThrowResult Sema::canThrow(const Expr *E) {
       CT = CT_Dependent;
     else if (isa<CXXPseudoDestructorExpr>(CE->getCallee()->IgnoreParens()))
       CT = CT_Cannot;
-    else if (CE->getCalleeDecl())
-      CT = canCalleeThrow(*this, E, CE->getCalleeDecl());
     else
-      CT = CT_Can;
+      CT = canCalleeThrow(*this, E, CE->getCalleeDecl());
     if (CT == CT_Can)
       return CT;
     return mergeCanThrow(CT, canSubExprsThrow(*this, E));
@@ -1155,6 +1167,7 @@ CanThrowResult Sema::canThrow(const Expr *E) {
   case Expr::ExprWithCleanupsClass:
   case Expr::ExtVectorElementExprClass:
   case Expr::InitListExprClass:
+  case Expr::ArrayInitLoopExprClass:
   case Expr::MemberExprClass:
   case Expr::ObjCIsaExprClass:
   case Expr::ObjCIvarRefExprClass:
@@ -1248,6 +1261,7 @@ CanThrowResult Sema::canThrow(const Expr *E) {
   case Expr::ImaginaryLiteralClass:
   case Expr::ImplicitValueInitExprClass:
   case Expr::IntegerLiteralClass:
+  case Expr::ArrayInitIndexExprClass:
   case Expr::NoInitExprClass:
   case Expr::ObjCEncodeExprClass:
   case Expr::ObjCStringLiteralClass:

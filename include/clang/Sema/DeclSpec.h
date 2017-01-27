@@ -1248,9 +1248,10 @@ struct DeclaratorChunk {
     /// declarator.
     unsigned NumParams;
 
-    /// NumExceptions - This is the number of types in the dynamic-exception-
-    /// decl, if the function has one.
-    unsigned NumExceptions;
+    /// NumExceptionsOrDecls - This is the number of types in the
+    /// dynamic-exception-decl, if the function has one. In C, this is the
+    /// number of declarations in the function prototype.
+    unsigned NumExceptionsOrDecls;
 
     /// \brief The location of the ref-qualifier, if any.
     ///
@@ -1300,6 +1301,11 @@ struct DeclaratorChunk {
       /// \brief Pointer to the cached tokens for an exception-specification
       /// that has not yet been parsed.
       CachedTokens *ExceptionSpecTokens;
+
+      /// Pointer to a new[]'d array of declarations that need to be available
+      /// for lookup inside the function body, if one exists. Does not exist in
+      /// C++.
+      NamedDecl **DeclsInPrototype;
     };
 
     /// \brief If HasTrailingReturnType is true, this is the trailing return
@@ -1322,10 +1328,20 @@ struct DeclaratorChunk {
     void destroy() {
       if (DeleteParams)
         delete[] Params;
-      if (getExceptionSpecType() == EST_Dynamic)
+      switch (getExceptionSpecType()) {
+      default:
+        break;
+      case EST_Dynamic:
         delete[] Exceptions;
-      else if (getExceptionSpecType() == EST_Unparsed)
+        break;
+      case EST_Unparsed:
         delete ExceptionSpecTokens;
+        break;
+      case EST_None:
+        if (NumExceptionsOrDecls != 0)
+          delete[] DeclsInPrototype;
+        break;
+      }
     }
 
     /// isKNRPrototype - Return true if this is a K&R style identifier list,
@@ -1393,6 +1409,19 @@ struct DeclaratorChunk {
     /// \brief Get the type of exception specification this function has.
     ExceptionSpecificationType getExceptionSpecType() const {
       return static_cast<ExceptionSpecificationType>(ExceptionSpecType);
+    }
+
+    /// \brief Get the number of dynamic exception specifications.
+    unsigned getNumExceptions() const {
+      assert(ExceptionSpecType != EST_None);
+      return NumExceptionsOrDecls;
+    }
+
+    /// \brief Get the non-parameter decls defined within this function
+    /// prototype. Typically these are tag declarations.
+    ArrayRef<NamedDecl *> getDeclsInPrototype() const {
+      assert(ExceptionSpecType == EST_None);
+      return llvm::makeArrayRef(DeclsInPrototype, NumExceptionsOrDecls);
     }
 
     /// \brief Determine whether this function declarator had a
@@ -1540,6 +1569,7 @@ struct DeclaratorChunk {
                                      unsigned NumExceptions,
                                      Expr *NoexceptExpr,
                                      CachedTokens *ExceptionSpecTokens,
+                                     ArrayRef<NamedDecl *> DeclsInPrototype,
                                      SourceLocation LocalRangeBegin,
                                      SourceLocation LocalRangeEnd,
                                      Declarator &TheDeclarator,
@@ -1679,6 +1709,7 @@ public:
     ObjCParameterContext,// An ObjC method parameter type.
     KNRTypeListContext,  // K&R type definition list for formals.
     TypeNameContext,     // Abstract declarator for types.
+    FunctionalCastContext, // Type in a C++ functional cast expression.
     MemberContext,       // Struct/Union field.
     BlockContext,        // Declaration within a block in a function.
     ForContext,          // Declaration within first part of a for loop.
@@ -1881,6 +1912,7 @@ public:
       return false;
 
     case TypeNameContext:
+    case FunctionalCastContext:
     case AliasDeclContext:
     case AliasTemplateContext:
     case PrototypeContext:
@@ -1921,6 +1953,7 @@ public:
       return true;
 
     case TypeNameContext:
+    case FunctionalCastContext:
     case CXXNewContext:
     case AliasDeclContext:
     case AliasTemplateContext:
@@ -1953,6 +1986,7 @@ public:
     case CXXCatchContext:
     case ObjCCatchContext:
     case TypeNameContext:
+    case FunctionalCastContext:
     case ConversionIdContext:
     case ObjCParameterContext:
     case ObjCResultContext:
@@ -1991,6 +2025,7 @@ public:
     // These contexts don't allow any kind of non-abstract declarator.
     case KNRTypeListContext:
     case TypeNameContext:
+    case FunctionalCastContext:
     case AliasDeclContext:
     case AliasTemplateContext:
     case LambdaExprParameterContext:
@@ -2048,6 +2083,7 @@ public:
     case CXXCatchContext:
     case ObjCCatchContext:
     case TypeNameContext:
+    case FunctionalCastContext: // FIXME
     case CXXNewContext:
     case AliasDeclContext:
     case AliasTemplateContext:
@@ -2249,6 +2285,7 @@ public:
     case ConditionContext:
     case KNRTypeListContext:
     case TypeNameContext:
+    case FunctionalCastContext:
     case AliasDeclContext:
     case AliasTemplateContext:
     case PrototypeContext:

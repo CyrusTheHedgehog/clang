@@ -113,6 +113,10 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
     if (CGDebugInfo *DI = getDebugInfo())
         DI->EmitUsingDecl(cast<UsingDecl>(D));
     return;
+  case Decl::UsingPack:
+    for (auto *Using : cast<UsingPackDecl>(D).expansions())
+      EmitDecl(*Using);
+    return;
   case Decl::UsingDirective: // using namespace X; [C++]
     if (CGDebugInfo *DI = getDebugInfo())
       DI->EmitUsingDirective(cast<UsingDirectiveDecl>(D));
@@ -307,7 +311,7 @@ CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
   if (!Init) {
     if (!getLangOpts().CPlusPlus)
       CGM.ErrorUnsupported(D.getInit(), "constant l-value expression");
-    else if (Builder.GetInsertBlock()) {
+    else if (HaveInsertPoint()) {
       // Since we have a static initializer, this global variable can't
       // be constant.
       GV->setConstant(false);
@@ -348,7 +352,7 @@ CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
   GV->setConstant(CGM.isTypeConstant(D.getType(), true));
   GV->setInitializer(Init);
 
-  if (hasNontrivialDestruction(D.getType())) {
+  if (hasNontrivialDestruction(D.getType()) && HaveInsertPoint()) {
     // We have a constant initializer, but a nontrivial destructor. We still
     // need to perform a guarded "initialization" in order to register the
     // destructor.
@@ -708,7 +712,7 @@ void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
     }
 
     auto ty = cast<llvm::PointerType>(tempLV.getAddress().getElementType());
-    llvm::Value *zero = llvm::ConstantPointerNull::get(ty);
+    llvm::Value *zero = CGM.getNullPointer(ty, tempLV.getType());
 
     // If __weak, we want to use a barrier under certain conditions.
     if (lifetime == Qualifiers::OCL_Weak)
@@ -1018,11 +1022,21 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       // Emit a lifetime intrinsic if meaningful. There's no point in doing this
       // if we don't have a valid insertion point (?).
       if (HaveInsertPoint() && !IsMSCatchParam) {
-        // goto or switch-case statements can break lifetime into several
-        // regions which need more efforts to handle them correctly. PR28267
-        // This is rare case, but it's better just omit intrinsics than have
-        // them incorrectly placed.
-        if (!Bypasses.IsBypassed(&D)) {
+        // If there's a jump into the lifetime of this variable, its lifetime
+        // gets broken up into several regions in IR, which requires more work
+        // to handle correctly. For now, just omit the intrinsics; this is a
+        // rare case, and it's better to just be conservatively correct.
+        // PR28267.
+        //
+        // We have to do this in all language modes if there's a jump past the
+        // declaration. We also have to do it in C if there's a jump to an
+        // earlier point in the current block because non-VLA lifetimes begin as
+        // soon as the containing block is entered, not when its variables
+        // actually come into scope; suppressing the lifetime annotations
+        // completely in this case is unnecessarily pessimistic, but again, this
+        // is rare.
+        if (!Bypasses.IsBypassed(&D) &&
+            !(!getLangOpts().CPlusPlus && hasLabelBeenSeenInCurrentScope())) {
           uint64_t size = CGM.getDataLayout().getTypeAllocSize(allocaTy);
           emission.SizeForLifetimeMarkers =
               EmitLifetimeStart(size, address.getPointer());

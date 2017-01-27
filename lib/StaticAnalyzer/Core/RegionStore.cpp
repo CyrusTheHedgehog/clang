@@ -1849,6 +1849,8 @@ SVal RegionStoreManager::getBindingForVar(RegionBindingsConstRef B,
 
     // Function-scoped static variables are default-initialized to 0; if they
     // have an initializer, it would have been processed by now.
+    // FIXME: This is only true when we're starting analysis from main().
+    // We're losing a lot of coverage here.
     if (isa<StaticGlobalSpaceRegion>(MS))
       return svalBuilder.makeZeroVal(T);
 
@@ -2073,11 +2075,10 @@ RegionStoreManager::bindArray(RegionBindingsConstRef B,
   if (Init.getAs<nonloc::LazyCompoundVal>())
     return bindAggregate(B, R, Init);
 
-  // Remaining case: explicit compound values.
-
   if (Init.isUnknown())
-    return setImplicitDefaultValue(B, R, ElementTy);
+    return bindAggregate(B, R, UnknownVal());
 
+  // Remaining case: explicit compound values.
   const nonloc::CompoundVal& CV = Init.castAs<nonloc::CompoundVal>();
   nonloc::CompoundVal::iterator VI = CV.begin(), VE = CV.end();
   uint64_t i = 0;

@@ -704,8 +704,8 @@ static const LangAS::Map *getAddressSpaceMap(const TargetInfo &T,
     // language-specific address space.
     static const unsigned FakeAddrSpaceMap[] = {
       1, // opencl_global
-      2, // opencl_local
-      3, // opencl_constant
+      3, // opencl_local
+      2, // opencl_constant
       4, // opencl_generic
       5, // cuda_device
       6, // cuda_constant
@@ -1270,9 +1270,8 @@ void ASTContext::setClassScopeSpecializationPattern(FunctionDecl *FD,
 }
 
 NamedDecl *
-ASTContext::getInstantiatedFromUsingDecl(UsingDecl *UUD) {
-  llvm::DenseMap<UsingDecl *, NamedDecl *>::const_iterator Pos
-    = InstantiatedFromUsingDecl.find(UUD);
+ASTContext::getInstantiatedFromUsingDecl(NamedDecl *UUD) {
+  auto Pos = InstantiatedFromUsingDecl.find(UUD);
   if (Pos == InstantiatedFromUsingDecl.end())
     return nullptr;
 
@@ -1280,11 +1279,15 @@ ASTContext::getInstantiatedFromUsingDecl(UsingDecl *UUD) {
 }
 
 void
-ASTContext::setInstantiatedFromUsingDecl(UsingDecl *Inst, NamedDecl *Pattern) {
+ASTContext::setInstantiatedFromUsingDecl(NamedDecl *Inst, NamedDecl *Pattern) {
   assert((isa<UsingDecl>(Pattern) ||
           isa<UnresolvedUsingValueDecl>(Pattern) ||
           isa<UnresolvedUsingTypenameDecl>(Pattern)) && 
          "pattern decl is not a using decl");
+  assert((isa<UsingDecl>(Inst) ||
+          isa<UnresolvedUsingValueDecl>(Inst) ||
+          isa<UnresolvedUsingTypenameDecl>(Inst)) && 
+         "instantiation did not produce a using decl");
   assert(!InstantiatedFromUsingDecl[Inst] && "pattern already exists");
   InstantiatedFromUsingDecl[Inst] = Pattern;
 }
@@ -1455,7 +1458,9 @@ CharUnits ASTContext::getDeclAlign(const Decl *D, bool ForAlignof) const {
         T = getPointerType(RT->getPointeeType());
     }
     QualType BaseT = getBaseElementType(T);
-    if (!BaseT->isIncompleteType() && !T->isFunctionType()) {
+    if (T->isFunctionType())
+      Align = getTypeInfoImpl(T.getTypePtr()).Align;
+    else if (!BaseT->isIncompleteType()) {
       // Adjust alignments of declarations with array type by the
       // large-array alignment on the target.
       if (const ArrayType *arrayType = getAsArrayType(T)) {
@@ -1872,8 +1877,9 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     return getTypeInfo(cast<SubstTemplateTypeParmType>(T)->
                        getReplacementType().getTypePtr());
 
-  case Type::Auto: {
-    const AutoType *A = cast<AutoType>(T);
+  case Type::Auto:
+  case Type::DeducedTemplateSpecialization: {
+    const DeducedType *A = cast<DeducedType>(T);
     assert(!A->getDeducedType().isNull() &&
            "cannot request the size of an undeduced or dependent auto type");
     return getTypeInfo(A->getDeducedType().getTypePtr());
@@ -2382,6 +2388,14 @@ static QualType getFunctionTypeWithExceptionSpec(
       Proto->getExtProtoInfo().withExceptionSpec(ESI));
 }
 
+bool ASTContext::hasSameFunctionTypeIgnoringExceptionSpec(QualType T,
+                                                          QualType U) {
+  return hasSameType(T, U) ||
+         (getLangOpts().CPlusPlus1z &&
+          hasSameType(getFunctionTypeWithExceptionSpec(*this, T, EST_None),
+                      getFunctionTypeWithExceptionSpec(*this, U, EST_None)));
+}
+
 void ASTContext::adjustExceptionSpec(
     FunctionDecl *FD, const FunctionProtoType::ExceptionSpecInfo &ESI,
     bool AsWritten) {
@@ -2752,6 +2766,7 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::TemplateTypeParm:
   case Type::SubstTemplateTypeParmPack:
   case Type::Auto:
+  case Type::DeducedTemplateSpecialization:
   case Type::PackExpansion:
     llvm_unreachable("type should never be variably-modified");
 
@@ -3338,54 +3353,37 @@ QualType ASTContext::getFunctionTypeInternal(
   return QualType(FTP, 0);
 }
 
-QualType ASTContext::getReadPipeType(QualType T) const {
+QualType ASTContext::getPipeType(QualType T, bool ReadOnly) const {
   llvm::FoldingSetNodeID ID;
-  ReadPipeType::Profile(ID, T);
+  PipeType::Profile(ID, T, ReadOnly);
 
   void *InsertPos = 0;
-  if (ReadPipeType *PT = ReadPipeTypes.FindNodeOrInsertPos(ID, InsertPos))
+  if (PipeType *PT = PipeTypes.FindNodeOrInsertPos(ID, InsertPos))
     return QualType(PT, 0);
 
   // If the pipe element type isn't canonical, this won't be a canonical type
   // either, so fill in the canonical type field.
   QualType Canonical;
   if (!T.isCanonical()) {
-    Canonical = getReadPipeType(getCanonicalType(T));
+    Canonical = getPipeType(getCanonicalType(T), ReadOnly);
 
     // Get the new insert position for the node we care about.
-    ReadPipeType *NewIP = ReadPipeTypes.FindNodeOrInsertPos(ID, InsertPos);
+    PipeType *NewIP = PipeTypes.FindNodeOrInsertPos(ID, InsertPos);
     assert(!NewIP && "Shouldn't be in the map!");
     (void)NewIP;
   }
-  ReadPipeType *New = new (*this, TypeAlignment) ReadPipeType(T, Canonical);
+  PipeType *New = new (*this, TypeAlignment) PipeType(T, Canonical, ReadOnly);
   Types.push_back(New);
-  ReadPipeTypes.InsertNode(New, InsertPos);
+  PipeTypes.InsertNode(New, InsertPos);
   return QualType(New, 0);
 }
 
+QualType ASTContext::getReadPipeType(QualType T) const {
+  return getPipeType(T, true);
+}
+
 QualType ASTContext::getWritePipeType(QualType T) const {
-  llvm::FoldingSetNodeID ID;
-  WritePipeType::Profile(ID, T);
-
-  void *InsertPos = 0;
-  if (WritePipeType *PT = WritePipeTypes.FindNodeOrInsertPos(ID, InsertPos))
-    return QualType(PT, 0);
-
-  // If the pipe element type isn't canonical, this won't be a canonical type
-  // either, so fill in the canonical type field.
-  QualType Canonical;
-  if (!T.isCanonical()) {
-    Canonical = getWritePipeType(getCanonicalType(T));
-
-    // Get the new insert position for the node we care about.
-    WritePipeType *NewIP = WritePipeTypes.FindNodeOrInsertPos(ID, InsertPos);
-    assert(!NewIP && "Shouldn't be in the map!");
-    (void)NewIP;
-  }
-  WritePipeType *New = new (*this, TypeAlignment) WritePipeType(T, Canonical);
-  Types.push_back(New);
-  WritePipeTypes.InsertNode(New, InsertPos);
-  return QualType(New, 0);
+  return getPipeType(T, false);
 }
 
 #ifndef NDEBUG
@@ -3789,12 +3787,8 @@ QualType ASTContext::getDependentNameType(ElaboratedTypeKeyword Keyword,
                                           QualType Canon) const {
   if (Canon.isNull()) {
     NestedNameSpecifier *CanonNNS = getCanonicalNestedNameSpecifier(NNS);
-    ElaboratedTypeKeyword CanonKeyword = Keyword;
-    if (Keyword == ETK_None)
-      CanonKeyword = ETK_Typename;
-    
-    if (CanonNNS != NNS || CanonKeyword != Keyword)
-      Canon = getDependentNameType(CanonKeyword, CanonNNS, Name);
+    if (CanonNNS != NNS)
+      Canon = getDependentNameType(Keyword, CanonNNS, Name);
   }
 
   llvm::FoldingSetNodeID ID;
@@ -3876,6 +3870,44 @@ ASTContext::getDependentTemplateSpecializationType(
   Types.push_back(T);
   DependentTemplateSpecializationTypes.InsertNode(T, InsertPos);
   return QualType(T, 0);
+}
+
+void
+ASTContext::getInjectedTemplateArgs(const TemplateParameterList *Params,
+                                    SmallVectorImpl<TemplateArgument> &Args) {
+  Args.reserve(Args.size() + Params->size());
+
+  for (NamedDecl *Param : *Params) {
+    TemplateArgument Arg;
+    if (auto *TTP = dyn_cast<TemplateTypeParmDecl>(Param)) {
+      QualType ArgType = getTypeDeclType(TTP);
+      if (TTP->isParameterPack())
+        ArgType = getPackExpansionType(ArgType, None);
+
+      Arg = TemplateArgument(ArgType);
+    } else if (auto *NTTP = dyn_cast<NonTypeTemplateParmDecl>(Param)) {
+      Expr *E = new (*this) DeclRefExpr(
+          NTTP, /*enclosing*/false,
+          NTTP->getType().getNonLValueExprType(*this),
+          Expr::getValueKindForType(NTTP->getType()), NTTP->getLocation());
+
+      if (NTTP->isParameterPack())
+        E = new (*this) PackExpansionExpr(DependentTy, E, NTTP->getLocation(),
+                                          None);
+      Arg = TemplateArgument(E);
+    } else {
+      auto *TTP = cast<TemplateTemplateParmDecl>(Param);
+      if (TTP->isParameterPack())
+        Arg = TemplateArgument(TemplateName(TTP), Optional<unsigned>());
+      else
+        Arg = TemplateArgument(TemplateName(TTP));
+    }
+
+    if (Param->isTemplateParameterPack())
+      Arg = TemplateArgument::CreatePackCopy(*this, Arg);
+
+    Args.push_back(Arg);
+  }
 }
 
 QualType ASTContext::getPackExpansionType(QualType Pattern,
@@ -4403,6 +4435,28 @@ QualType ASTContext::getAutoType(QualType DeducedType, AutoTypeKeyword Keyword,
   if (InsertPos)
     AutoTypes.InsertNode(AT, InsertPos);
   return QualType(AT, 0);
+}
+
+/// Return the uniqued reference to the deduced template specialization type
+/// which has been deduced to the given type, or to the canonical undeduced
+/// such type, or the canonical deduced-but-dependent such type.
+QualType ASTContext::getDeducedTemplateSpecializationType(
+    TemplateName Template, QualType DeducedType, bool IsDependent) const {
+  // Look in the folding set for an existing type.
+  void *InsertPos = nullptr;
+  llvm::FoldingSetNodeID ID;
+  DeducedTemplateSpecializationType::Profile(ID, Template, DeducedType,
+                                             IsDependent);
+  if (DeducedTemplateSpecializationType *DTST =
+          DeducedTemplateSpecializationTypes.FindNodeOrInsertPos(ID, InsertPos))
+    return QualType(DTST, 0);
+
+  DeducedTemplateSpecializationType *DTST = new (*this, TypeAlignment)
+      DeducedTemplateSpecializationType(Template, DeducedType, IsDependent);
+  Types.push_back(DTST);
+  if (InsertPos)
+    DeducedTemplateSpecializationTypes.InsertNode(DTST, InsertPos);
+  return QualType(DTST, 0);
 }
 
 /// getAtomicType - Return the uniqued reference to the atomic type for
@@ -6303,6 +6357,7 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
   // We could see an undeduced auto type here during error recovery.
   // Just ignore it.
   case Type::Auto:
+  case Type::DeducedTemplateSpecialization:
     return;
 
   case Type::Pipe:
@@ -8102,6 +8157,7 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
     llvm_unreachable("Non-canonical and dependent types shouldn't get here");
 
   case Type::Auto:
+  case Type::DeducedTemplateSpecialization:
   case Type::LValueReference:
   case Type::RValueReference:
   case Type::MemberPointer:
@@ -8260,22 +8316,9 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
   }
   case Type::Pipe:
   {
-    // Merge two pointer types, while trying to preserve typedef info
-    QualType LHSValue = LHS->getAs<PipeType>()->getElementType();
-    QualType RHSValue = RHS->getAs<PipeType>()->getElementType();
-    if (Unqualified) {
-      LHSValue = LHSValue.getUnqualifiedType();
-      RHSValue = RHSValue.getUnqualifiedType();
-    }
-    QualType ResultType = mergeTypes(LHSValue, RHSValue, false,
-                                     Unqualified);
-    if (ResultType.isNull()) return QualType();
-    if (getCanonicalType(LHSValue) == getCanonicalType(ResultType))
-      return LHS;
-    if (getCanonicalType(RHSValue) == getCanonicalType(ResultType))
-      return RHS;
-    return isa<ReadPipeType>(LHS) ? getReadPipeType(ResultType)
-                                  : getWritePipeType(ResultType);
+    assert(LHS != RHS &&
+           "Equivalent pipe types should have already been handled!");
+    return QualType();
   }
   }
 
@@ -8748,8 +8791,8 @@ QualType ASTContext::GetBuiltinType(unsigned Id,
 
   bool Variadic = (TypeStr[0] == '.');
 
-  // We really shouldn't be making a no-proto type here, especially in C++.
-  if (ArgTypes.empty() && Variadic)
+  // We really shouldn't be making a no-proto type here.
+  if (ArgTypes.empty() && Variadic && !getLangOpts().CPlusPlus)
     return getFunctionNoProtoType(ResType, EI);
 
   FunctionProtoType::ExtProtoInfo EPI;
@@ -9004,7 +9047,8 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
 
   // Variables that have initialization with side-effects are required.
   if (VD->getInit() && VD->getInit()->HasSideEffects(*this) &&
-      !VD->evaluateValue())
+      // We can get a value-dependent initializer during error recovery.
+      (VD->getInit()->isValueDependent() || !VD->evaluateValue()))
     return true;
 
   // Likewise, variables with tuple-like bindings are required if their
@@ -9454,6 +9498,16 @@ ASTContext::ObjCMethodsAreEqual(const ObjCMethodDecl *MethodDecl,
   }
   return (MethodDecl->isVariadic() == MethodImpl->isVariadic());
   
+}
+
+uint64_t ASTContext::getTargetNullPointerValue(QualType QT) const {
+  unsigned AS;
+  if (QT->getUnqualifiedDesugaredType()->isNullPtrType())
+    AS = 0;
+  else
+    AS = QT->getPointeeType().getAddressSpace();
+
+  return getTargetInfo().getNullPointerValue(AS);
 }
 
 // Explicitly instantiate this in case a Redeclarable<T> is used from a TU that
