@@ -1702,8 +1702,7 @@ void Clang::AddMIPSTargetArgs(const ArgList &Args,
     }
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
-                               options::OPT_msmall_data_threshold_EQ)) {
+  if (Arg *A = Args.getLastArg(options::OPT_G)) {
     StringRef v = A->getValue();
     CmdArgs.push_back("-mllvm");
     CmdArgs.push_back(Args.MakeArgString("-mips-ssection-threshold=" + v));
@@ -1889,8 +1888,7 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
     CmdArgs.push_back(ABIName);
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
-                               options::OPT_msmall_data_threshold_EQ)) {
+  if (Arg *A = Args.getLastArg(options::OPT_G)) {
     StringRef v = A->getValue();
     CmdArgs.push_back("-mllvm");
     CmdArgs.push_back(Args.MakeArgString("-ppc-ssection-threshold=" + v));
@@ -9255,8 +9253,7 @@ void freebsd::Assembler::ConstructJob(Compilation &C, const JobAction &JA,
     else
       CmdArgs.push_back("-EL");
 
-    if (Arg *A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
-                                 options::OPT_msmall_data_threshold_EQ)) {
+    if (Arg *A = Args.getLastArg(options::OPT_G)) {
       StringRef v = A->getValue();
       CmdArgs.push_back(Args.MakeArgString("-G" + v));
       A->claim();
@@ -9371,8 +9368,7 @@ void freebsd::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("elf32ppc_fbsd");
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
-                               options::OPT_msmall_data_threshold_EQ)) {
+  if (Arg *A = Args.getLastArg(options::OPT_G)) {
     if (ToolChain.getArch() == llvm::Triple::mips ||
       ToolChain.getArch() == llvm::Triple::mipsel ||
       ToolChain.getArch() == llvm::Triple::mips64 ||
