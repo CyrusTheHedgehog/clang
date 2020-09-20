@@ -35,7 +35,6 @@
 
 #define MANGLE_CHECKER 0
 
-#include <iostream>
 
 #if MANGLE_CHECKER
 #include <cxxabi.h>
