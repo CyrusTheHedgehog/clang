@@ -81,7 +81,7 @@ class MacintoshMangleContextImpl : public MacintoshMangleContext {
 public:
   explicit MacintoshMangleContextImpl(ASTContext &Context,
                                       DiagnosticsEngine &Diags)
-      : MacintoshMangleContext(Context, Diags) {std::cout << "Hello World Mac!\n";}
+      : MacintoshMangleContext(Context, Diags) {}
 
   /// @name Mangler Entry Points
   /// @{

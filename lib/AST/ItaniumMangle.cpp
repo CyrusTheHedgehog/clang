@@ -133,7 +133,7 @@ class ItaniumMangleContextImpl : public ItaniumMangleContext {
 public:
   explicit ItaniumMangleContextImpl(ASTContext &Context,
                                     DiagnosticsEngine &Diags)
-      : ItaniumMangleContext(Context, Diags) {  std::cout << "Hello World!\n";}
+      : ItaniumMangleContext(Context, Diags) {}
 
   /// @name Mangler Entry Points
   /// @{
