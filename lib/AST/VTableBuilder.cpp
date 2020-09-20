@@ -2877,7 +2877,6 @@ void VFTableBuilder::CalculateVtordispAdjustment(
 static void GroupNewVirtualOverloads(
     const CXXRecordDecl *RD,
     SmallVector<const CXXMethodDecl *, 10> &VirtualMethods) {
-	llvm::outs()<< "Cave" << "\n";
   // Put the virtual methods into VirtualMethods in the proper order:
   // 1) Group overloads by declaration name. New groups are added to the
   //    vftable in the order of their first declarations in this class
