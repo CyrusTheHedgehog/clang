@@ -2467,6 +2467,7 @@ void CodeGenFunction::PushDestructorCleanup(QualType T, Address Addr) {
 
 void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // Compute the address point.
+
   llvm::Value *VTableAddressPoint =
       CGM.getCXXABI().getVTableAddressPointInStructor(
           *this, Vptr.VTableClass, Vptr.Base, Vptr.NearestVBase);

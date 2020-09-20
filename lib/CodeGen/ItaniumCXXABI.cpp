@@ -35,6 +35,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Value.h"
 
+
 using namespace clang;
 using namespace CodeGen;
 
@@ -1492,6 +1493,9 @@ void ItaniumCXXABI::EmitDestructorCall(CodeGenFunction &CGF,
 
 void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
                                           const CXXRecordDecl *RD) {
+											  
+											  
+
   llvm::GlobalVariable *VTable = getAddrOfVTable(RD, CharUnits());
   if (VTable->hasInitializer())
     return;
@@ -1521,6 +1525,7 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
   // on the size of the initializer which doesn't make sense as only single
   // values are read.
   unsigned PAlign = CGM.getTarget().getPointerAlign(0);
+  
   VTable->setAlignment(getContext().toCharUnitsFromBits(PAlign).getQuantity());
 
   // If this is the magic class __cxxabiv1::__fundamental_type_info,
@@ -1557,6 +1562,7 @@ llvm::Value *ItaniumCXXABI::getVTableAddressPointInStructor(
   return getVTableAddressPoint(Base, VTableClass);
 }
 
+//TODO::VTABLE ADDRESS POINT Need to find Where it is called so I don't have to hardcode
 llvm::Constant *
 ItaniumCXXABI::getVTableAddressPoint(BaseSubobject Base,
                                      const CXXRecordDecl *VTableClass) {
@@ -1568,7 +1574,7 @@ ItaniumCXXABI::getVTableAddressPoint(BaseSubobject Base,
                               .getAddressPoint(Base);
   llvm::Value *Indices[] = {
     llvm::ConstantInt::get(CGM.Int32Ty, 0),
-    llvm::ConstantInt::get(CGM.Int32Ty, AddressPoint)
+    llvm::ConstantInt::get(CGM.Int32Ty, AddressPoint-2)
   };
 
   return llvm::ConstantExpr::getInBoundsGetElementPtr(VTable->getValueType(),
@@ -2799,7 +2805,8 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     "_ZTVN10__cxxabiv121__vmi_class_type_infoE";
 
   const char *VTableName = nullptr;
-
+  //TODO: Find better way of preventing cxxabi from generating
+  int dangerousABI = 0;
   switch (Ty->getTypeClass()) {
 #define TYPE(Class, Base)
 #define ABSTRACT_TYPE(Class, Base)
@@ -2850,6 +2857,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     break;
 
   case Type::Record: {
+	dangerousABI = 1;
     const CXXRecordDecl *RD =
       cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl());
 
@@ -2896,7 +2904,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     VTableName = "_ZTVN10__cxxabiv129__pointer_to_member_type_infoE";
     break;
   }
-
+  
   llvm::Constant *VTable =
     CGM.getModule().getOrInsertGlobal(VTableName, CGM.Int8PtrTy);
 
@@ -2908,8 +2916,9 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   VTable =
       llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8PtrTy, VTable, Two);
   VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
-
-  Fields.push_back(VTable);
+  if(dangerousABI==0){
+	Fields.push_back(VTable);
+  }
 }
 
 /// \brief Return the linkage that the type info and type info name constants

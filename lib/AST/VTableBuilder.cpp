@@ -1450,7 +1450,6 @@ void ItaniumVTableBuilder::AddMethods(
   //   whether it is a new function or overrides a base class function,
   //   unless it overrides a function from the primary base, and conversion
   //   between their return types does not require an adjustment.
-
   const CXXRecordDecl *RD = Base.getBase();
   const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
 
@@ -1479,7 +1478,6 @@ void ItaniumVTableBuilder::AddMethods(
       PrimaryBaseOffset = Base.getBaseOffset();
       PrimaryBaseOffsetInLayoutClass = BaseOffsetInLayoutClass;
     }
-
     AddMethods(BaseSubobject(PrimaryBase, PrimaryBaseOffset),
                PrimaryBaseOffsetInLayoutClass, FirstBaseInPrimaryBaseChain, 
                FirstBaseOffsetInLayoutClass, PrimaryBases);
@@ -1498,7 +1496,6 @@ void ItaniumVTableBuilder::AddMethods(
     if (!MD->isVirtual())
       continue;
     MD = MD->getCanonicalDecl();
-
     // Get the final overrider.
     FinalOverriders::OverriderInfo Overrider = 
       Overriders.getOverrider(MD, Base.getBaseOffset());
@@ -1510,6 +1507,7 @@ void ItaniumVTableBuilder::AddMethods(
           FindNearestOverriddenMethod(MD, PrimaryBases)) {
       if (ComputeReturnAdjustmentBaseOffset(Context, MD, 
                                             OverriddenMD).isEmpty()) {
+		
         // Replace the method info of the overridden method with our own
         // method.
         assert(MethodInfoMap.count(OverriddenMD) && 
@@ -1568,7 +1566,6 @@ void ItaniumVTableBuilder::AddMethods(
         continue;
       }
     }
-
     NewVirtualFunctions.push_back(MD);
   }
 
@@ -1607,7 +1604,6 @@ void ItaniumVTableBuilder::AddMethods(
 
     ReturnAdjustment ReturnAdjustment = 
       ComputeReturnAdjustment(ReturnAdjustmentOffset);
-    
     AddMethod(Overrider.Method, ReturnAdjustment);
   }
 }
@@ -1658,17 +1654,20 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
   if (Base.getBase() == MostDerivedClass)
     VBaseOffsetOffsets = Builder.getVBaseOffsetOffsets();
 
-  // Add the offset to top.
+
+
+  // FIRST, add the RTTI.
+  Components.push_back(VTableComponent::MakeRTTI(MostDerivedClass));
+  
+  // NEXT ADD the offset to top.
   CharUnits OffsetToTop = MostDerivedClassOffset - OffsetInLayoutClass;
   Components.push_back(VTableComponent::MakeOffsetToTop(OffsetToTop));
-
-  // Next, add the RTTI.
-  Components.push_back(VTableComponent::MakeRTTI(MostDerivedClass));
 
   uint64_t AddressPoint = Components.size();
 
   // Now go through all virtual member functions and add them.
   PrimaryBasesSetVectorTy PrimaryBases;
+
   AddMethods(Base, OffsetInLayoutClass,
              Base.getBase(), OffsetInLayoutClass, 
              PrimaryBases);
@@ -2878,6 +2877,7 @@ void VFTableBuilder::CalculateVtordispAdjustment(
 static void GroupNewVirtualOverloads(
     const CXXRecordDecl *RD,
     SmallVector<const CXXMethodDecl *, 10> &VirtualMethods) {
+	llvm::outs()<< "Cave" << "\n";
   // Put the virtual methods into VirtualMethods in the proper order:
   // 1) Group overloads by declaration name. New groups are added to the
   //    vftable in the order of their first declarations in this class
@@ -2970,7 +2970,9 @@ void VFTableBuilder::AddMethods(BaseSubobject Base, unsigned BaseDepth,
     const CXXMethodDecl *FinalOverriderMD = FinalOverrider.Method;
     const CXXMethodDecl *OverriddenMD =
         FindNearestOverriddenMethod(MD, VisitedBases);
-
+		
+	llvm::outs() << MD->getNameAsString() << "\n";
+	
     ThisAdjustment ThisAdjustmentOffset;
     bool ReturnAdjustingThunk = false, ForceReturnAdjustmentMangling = false;
     CharUnits ThisOffset = ComputeThisOffset(FinalOverrider);

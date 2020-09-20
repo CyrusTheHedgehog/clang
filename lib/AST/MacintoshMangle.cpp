@@ -26,6 +26,10 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
+
+#include <iostream>
+
+
 using namespace clang;
 
 namespace {
@@ -77,7 +81,7 @@ class MacintoshMangleContextImpl : public MacintoshMangleContext {
 public:
   explicit MacintoshMangleContextImpl(ASTContext &Context,
                                       DiagnosticsEngine &Diags)
-      : MacintoshMangleContext(Context, Diags) {}
+      : MacintoshMangleContext(Context, Diags) {std::cout << "Hello World Mac!\n";}
 
   /// @name Mangler Entry Points
   /// @{
@@ -254,8 +258,21 @@ static void PrintNamedDecl(const NamedDecl *ND, const ASTContext &Ctx,
   Name << ND->getName();
   MangleClassTemplateSpecialization(ND, Ctx, Name);
   auto &NameStr = Name.str();
-  Out << NameStr.size();
+  //GC didn't mangle type names back then
+  //Out << NameStr.size();
   Out << NameStr;
+}
+
+static void PrintNameSpace(const NamedDecl *ND, const ASTContext &Ctx,
+                           raw_ostream &Out) {
+  std::string Str;
+  llvm::raw_string_ostream Name(Str);
+  Name << ND->getName();
+  MangleClassTemplateSpecialization(ND, Ctx, Name);
+  auto &NameStr = Name.str();
+  //GC didn't mangle type names back then
+  //Out << NameStr.size();
+  Out << NameStr<<"::";
 }
 
 static void RecursiveDenest(const DeclContext *DCtx,
@@ -269,9 +286,14 @@ static void RecursiveDenest(const DeclContext *DCtx,
   if (Prefix && isa<NamedDecl>(Prefix))
     RecursiveDenest(Prefix, Count + 1, Ctx, Out);
   else if (Count > 1)
-    Out << 'Q' << Count;
-
-  PrintNamedDecl(Named, Ctx, Out);
+	if(!DCtx->isNamespace()){
+		Out << 'Q' << Count;
+	}
+	if(DCtx->isNamespace()){
+		PrintNameSpace(Named, Ctx, Out);
+	}else{
+		PrintNamedDecl(Named, Ctx, Out);
+	}
 }
 
 static bool PrintType(QualType T, const ASTContext &Ctx,

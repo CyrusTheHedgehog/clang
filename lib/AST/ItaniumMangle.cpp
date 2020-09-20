@@ -35,6 +35,8 @@
 
 #define MANGLE_CHECKER 0
 
+#include <iostream>
+
 #if MANGLE_CHECKER
 #include <cxxabi.h>
 #endif
@@ -131,7 +133,7 @@ class ItaniumMangleContextImpl : public ItaniumMangleContext {
 public:
   explicit ItaniumMangleContextImpl(ASTContext &Context,
                                     DiagnosticsEngine &Diags)
-      : ItaniumMangleContext(Context, Diags) {}
+      : ItaniumMangleContext(Context, Diags) {  std::cout << "Hello World!\n";}
 
   /// @name Mangler Entry Points
   /// @{
@@ -4723,6 +4725,7 @@ void ItaniumMangleContextImpl::mangleReferenceTemporary(const VarDecl *D,
 void ItaniumMangleContextImpl::mangleCXXVTable(const CXXRecordDecl *RD,
                                                raw_ostream &Out) {
   // <special-name> ::= TV <type>  # virtual table
+
   CXXNameMangler Mangler(*this, Out);
   Mangler.getStream() << "_ZTV";
   Mangler.mangleNameOrStandardSubstitution(RD);
