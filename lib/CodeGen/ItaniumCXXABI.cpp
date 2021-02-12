@@ -2805,8 +2805,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     "_ZTVN10__cxxabiv121__vmi_class_type_infoE";
 
   const char *VTableName = nullptr;
-  //TODO: Find better way of preventing cxxabi from generating
-  int dangerousABI = 0;
+
   switch (Ty->getTypeClass()) {
 #define TYPE(Class, Base)
 #define ABSTRACT_TYPE(Class, Base)
@@ -2857,17 +2856,17 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     break;
 
   case Type::Record: {
-	dangerousABI = 1;
-    const CXXRecordDecl *RD =
-      cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl());
+	return;
+//    const CXXRecordDecl *RD =
+//      cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl());
 
-    if (!RD->hasDefinition() || !RD->getNumBases()) {
+//    if (!RD->hasDefinition() || !RD->getNumBases()) {
       VTableName = ClassTypeInfo;
-    } else if (CanUseSingleInheritance(RD)) {
-      VTableName = SIClassTypeInfo;
-    } else {
-      VTableName = VMIClassTypeInfo;
-    }
+//    } else if (CanUseSingleInheritance(RD)) {
+//      VTableName = SIClassTypeInfo;
+//    } else {
+ //     VTableName = VMIClassTypeInfo;
+ //   }
 
     break;
   }
@@ -2916,9 +2915,9 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   VTable =
       llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8PtrTy, VTable, Two);
   VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
-  if(dangerousABI==0){
+
 	Fields.push_back(VTable);
-  }
+  
 }
 
 /// \brief Return the linkage that the type info and type info name constants
